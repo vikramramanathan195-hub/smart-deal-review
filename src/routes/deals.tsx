@@ -67,15 +67,33 @@ function Deals() {
   const { role } = useSession();
   const readOnly = role === "Manager";
 
-  const [dealName, setDealName] = useState("Northwind Industries — FY27 Expansion");
-  const [term, setTerm] = useState<(typeof TERMS)[number]>("24mo");
-  const [categories, setCategories] = useState<ProductCategory[]>(["Compute", "Storage"]);
-  const [lines, setLines] = useState<LineItem[]>(seedLineItems);
+  const firstDeal = SAMPLE_DEALS[0]!;
+  const [sampleId, setSampleId] = useState(firstDeal.id);
+  const [dealName, setDealName] = useState(firstDeal.name);
+  const [term, setTerm] = useState<(typeof TERMS)[number]>(firstDeal.term);
+  const [categories, setCategories] = useState<ProductCategory[]>(firstDeal.categories);
+  const [lines, setLines] = useState<LineItem[]>(firstDeal.lines);
   const [pendingRemoval, setPendingRemoval] = useState<LineItem | null>(null);
   const [dealDecision, setDealDecision] = useState<null | "approved" | "changes">(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  const loadSample = (id: string) => {
+    const deal = SAMPLE_DEALS.find((d) => d.id === id);
+    if (!deal) return;
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    setSampleId(deal.id);
+    setDealName(deal.name);
+    setTerm(deal.term);
+    setCategories(deal.categories);
+    setLines(deal.lines.map((l) => ({ ...l })));
+    setPendingRemoval(null);
+    setDealDecision(null);
+  };
+
+  const activeSample = SAMPLE_DEALS.find((d) => d.id === sampleId) ?? firstDeal;
 
   const patchLine = (id: string, patch: Partial<LineItem>) =>
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
