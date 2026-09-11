@@ -24,16 +24,23 @@ import { LineItemCard } from "@/components/app/line-item-card";
 import { useSession } from "@/lib/session";
 import {
   PRODUCT_CATEGORIES,
+  SAMPLE_DEALS,
   currency,
   effectiveDiscount,
   generateRecommendation,
   newId,
   pct,
   policyStatus,
-  seedLineItems,
   type LineItem,
   type ProductCategory,
 } from "@/lib/deal-data";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/deals")({
   head: () => ({
