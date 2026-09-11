@@ -32,10 +32,6 @@ export function LineItemCard({
   const valueError =
     line.value === "" || Number(line.value) <= 0 ? "Deal value must be greater than 0" : null;
   const categoryError = line.category === "" ? "Select a product category" : null;
-  const discountError =
-    line.appliedDiscount !== null && line.appliedDiscount > 100
-      ? "Discount cannot exceed 100%"
-      : null;
 
   return (
     <section className="surface-card overflow-hidden transition-shadow hover:shadow-card-hover">
@@ -93,8 +89,13 @@ export function LineItemCard({
                   aria-invalid={!!valueError}
                   value={line.value === "" ? "" : String(line.value)}
                   onChange={(e) => {
-                    const raw = e.target.value.replace(/[^0-9]/g, "");
-                    onChange({ value: raw === "" ? "" : Number(raw) });
+                    const raw = e.target.value.replace(/[^0-9-]/g, "");
+                    const normalized = raw.startsWith("-")
+                      ? `-${raw.slice(1).replace(/-/g, "")}`
+                      : raw.replace(/-/g, "");
+                    onChange({
+                      value: normalized === "" || normalized === "-" ? "" : Number(normalized),
+                    });
                   }}
                   placeholder="0"
                 />
@@ -122,19 +123,17 @@ export function LineItemCard({
         {line.generating ? (
           <AiPanelSkeleton />
         ) : line.recommendation ? (
-          <>
-            <AiPanel
-              line={line}
-              recommendation={line.recommendation}
-              readOnly={readOnly}
-              onAccept={onAccept}
-              onAdjust={onAdjust}
-              onOverride={onOverride}
-            />
-            {discountError && (
-              <p className="mt-2 text-xs font-medium text-danger">{discountError}</p>
-            )}
-          </>
+          <AiPanel
+            line={line}
+            recommendation={line.recommendation}
+            readOnly={readOnly}
+            onAccept={onAccept}
+            onAdjust={onAdjust}
+            onOverride={onOverride}
+            onDiscountChange={(discount) =>
+              onChange({ appliedDiscount: discount, decision: "adjusted" })
+            }
+          />
         ) : (
           <AiPanelEmpty />
         )}
