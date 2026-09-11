@@ -51,7 +51,7 @@ export function LineItemCard({
               <p className="py-2 text-sm font-medium">{line.category || "—"}</p>
             ) : (
               <Select
-                value={line.category || undefined}
+                value={line.category}
                 onValueChange={(v) => onChange({ category: v as ProductCategory })}
               >
                 <SelectTrigger aria-invalid={!!categoryError}>
