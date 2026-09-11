@@ -363,20 +363,25 @@ function Deals() {
                 {policy.label}
               </span>
               {readOnly && (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <Button
-                    disabled={!managerActionsEnabled}
+                    disabled={!managerActionsEnabled || dealDecision !== null}
                     onClick={() => setDealDecision("approved")}
                   >
-                    Approve Deal
+                    {dealDecision === "approved" ? "Deal Approved" : "Approve Deal"}
                   </Button>
                   <Button
                     variant="outline"
-                    disabled={!managerActionsEnabled}
+                    disabled={!managerActionsEnabled || dealDecision !== null}
                     onClick={() => setDealDecision("changes")}
                   >
-                    Request Changes
+                    {dealDecision === "changes" ? "Changes Requested" : "Request Changes"}
                   </Button>
+                  {dealDecision && (
+                    <Button variant="ghost" onClick={() => setDealDecision(null)}>
+                      Undo decision
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
