@@ -128,6 +128,115 @@ export const seedLineItems: LineItem[] = [
   },
 ];
 
+const cerulean: CustomerContext = {
+  name: "Cerulean Logistics",
+  partnerSince: 2025,
+  lifetimeValue: "$310K",
+  renewalRate: "67%",
+  avgDiscount: 13.4,
+  history: [
+    { date: "Jan 2025", discount: 12.0, outcome: "Lost" },
+    { date: "Jun 2025", discount: 14.5, outcome: "Won" },
+    { date: "Dec 2025", discount: 13.5, outcome: "Lost" },
+  ],
+  callout: "Competitive displacement bid — well above policy, manager sign-off required.",
+};
+
+const aggressiveFactors: Factor[] = [
+  { name: "Baseline (segment: Enterprise)", value: 8.0 },
+  { name: "Competitive displacement", value: 6.0 },
+  { name: "Deal size tier", value: 3.0 },
+  { name: "Multi-year term commitment", value: 2.0 },
+  { name: "Margin floor guardrail", value: -1.0 },
+];
+
+const servicesAggressiveFactors: Factor[] = [
+  { name: "Baseline (segment: Enterprise)", value: 8.0 },
+  { name: "Competitive displacement", value: 7.0 },
+  { name: "Deal size tier", value: 2.5 },
+  { name: "Regional competitive pressure", value: 4.0 },
+  { name: "Margin floor guardrail", value: -2.0 },
+];
+
+const escalationLineItems: LineItem[] = [
+  {
+    id: "line-esc-1",
+    category: "Networking",
+    value: 220000,
+    decision: "pending",
+    appliedDiscount: null,
+    generating: false,
+    recommendation: {
+      discount: 18,
+      confidence: "low",
+      factors: aggressiveFactors,
+      customer: cerulean,
+    },
+  },
+  {
+    id: "line-esc-2",
+    category: "Services",
+    value: 130000,
+    decision: "pending",
+    appliedDiscount: null,
+    generating: false,
+    recommendation: {
+      discount: 19.5,
+      confidence: "low",
+      factors: servicesAggressiveFactors,
+      customer: cerulean,
+    },
+  },
+  {
+    id: "line-esc-3",
+    category: "Compute",
+    value: 75000,
+    decision: "pending",
+    appliedDiscount: null,
+    generating: false,
+    recommendation: {
+      discount: 16,
+      confidence: "medium",
+      factors: aggressiveFactors,
+      customer: {
+        ...cerulean,
+        callout: "2.6 pts above their historical average — justify with competitive evidence.",
+      },
+    },
+  },
+];
+
+export type SampleDeal = {
+  id: string;
+  label: string;
+  summary: string;
+  name: string;
+  term: "12mo" | "24mo" | "36mo";
+  categories: ProductCategory[];
+  lines: LineItem[];
+};
+
+export const SAMPLE_DEALS: SampleDeal[] = [
+  {
+    id: "northwind",
+    label: "Northwind — within range",
+    summary: "Blended discount inside the standard band. No approval needed.",
+    name: "Northwind Industries — FY27 Expansion",
+    term: "24mo",
+    categories: ["Compute", "Storage"],
+    lines: seedLineItems,
+  },
+  {
+    id: "cerulean",
+    label: "Cerulean — needs approval",
+    summary: "Blended discount above the 15% ceiling. Manager approval required.",
+    name: "Cerulean Logistics — Competitive Displacement",
+    term: "36mo",
+    categories: ["Networking", "Services", "Compute"],
+    lines: escalationLineItems,
+  },
+];
+
 /** Deterministic mock "AI" generation for newly added lines. */
 export function generateRecommendation(category: ProductCategory | "", value: number): Recommendation {
   const sizeTier = value >= 250000 ? 3 : value >= 100000 ? 2 : value >= 50000 ? 1.5 : 1;
