@@ -7,12 +7,13 @@ from app.models import (
     Deal,
     DealDetail,
     DealSummary,
+    LineItemApprovalRequest,
     LineItemCreate,
     LineItemDecisionRequest,
     LineItemDetail,
     LineItemUpdate,
 )
-from app.store import DealState, NotFoundError, store
+from app.store import DealState, LineItemLockedError, NotFoundError, store
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
 
@@ -75,6 +76,8 @@ def remove_line_item(deal_id: str, line_item_id: str, _user=Depends(get_current_
         store.remove_line_item(deal_id, line_item_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except LineItemLockedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.patch("/{deal_id}/line-items/{line_item_id}", response_model=LineItemDetail)
@@ -89,6 +92,8 @@ def update_line_item(
         item = store.update_line_item(deal_id, line_item_id, body.product_category, body.deal_value)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except LineItemLockedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     state = store.get_deal_state(deal_id)
     return LineItemDetail(line_item=item, recommendation=state.recommendations[item.id])
 
@@ -101,20 +106,54 @@ def decide_line_item(
     user=Depends(require_role("sales_rep")),
 ) -> LineItemDetail:
     _get_state_or_404(deal_id)
-    if body.action in ("adjust", "override") and body.applied_discount_pct is None:
+    if body.action == "propose" and body.applied_discount_pct is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=[
                 {
                     "field": "appliedDiscountPct",
-                    "message": f"appliedDiscountPct is required when action is '{body.action}'",
+                    "message": "appliedDiscountPct is required when proposing a discount",
                 }
             ],
         )
+    # Every manually-proposed discount needs a reason, not just ones outside
+    # the auto-approve band.
+    if body.action == "propose" and not (body.reason or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"field": "reason", "message": "reason is required when proposing a discount"}],
+        )
     try:
-        item = store.decide_line_item(deal_id, line_item_id, body.action, body.applied_discount_pct)
+        item = store.decide_line_item(
+            deal_id,
+            line_item_id,
+            body.action,
+            body.applied_discount_pct,
+            decided_by=user.email,
+            reason=(body.reason or "").strip() or None,
+        )
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except LineItemLockedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    state = store.get_deal_state(deal_id)
+    return LineItemDetail(line_item=item, recommendation=state.recommendations[item.id])
+
+
+@router.post("/{deal_id}/line-items/{line_item_id}/approval", response_model=LineItemDetail)
+def decide_line_item_approval(
+    deal_id: str,
+    line_item_id: str,
+    body: LineItemApprovalRequest,
+    user=Depends(require_role("manager")),
+) -> LineItemDetail:
+    _get_state_or_404(deal_id)
+    try:
+        item = store.resolve_line_item_approval(deal_id, line_item_id, body.decision, decided_by=user.email)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except LineItemLockedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     state = store.get_deal_state(deal_id)
     return LineItemDetail(line_item=item, recommendation=state.recommendations[item.id])
 

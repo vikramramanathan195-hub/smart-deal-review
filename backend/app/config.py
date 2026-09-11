@@ -8,7 +8,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 8 * 60
 
-    frontend_origin: str = "http://localhost:8080"
+    # Next.js dev default. The frontend was TanStack Start (port 8080) until
+    # the Next.js rewrite.
+    frontend_origin: str = "http://localhost:3000"
 
 
 settings = Settings()

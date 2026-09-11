@@ -3,14 +3,24 @@ resets on restart, consistent with the rest of this project's mocked approach.""
 
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from app.models import (
     Customer,
     Deal,
+    DiscountChangeEntry,
     DiscountHistoryEntry,
     DiscountRecommendation,
     LineItem,
 )
+
+# A proposal within this many points of the AI's recommendation auto-applies;
+# beyond it, the line locks and waits for a manager to approve or reject it.
+AUTO_APPROVE_BAND_PCT = 3.0
+
+
+class LineItemLockedError(Exception):
+    """Raised when an action targets a line item that's pending manager approval."""
 from app.seed_data import (
     CERULEAN_CUSTOMER,
     CERULEAN_DEAL,
@@ -140,8 +150,13 @@ class DataStore:
 
     def remove_line_item(self, deal_id: str, line_item_id: str) -> None:
         state = self.get_deal_state(deal_id)
-        if line_item_id not in state.line_items:
+        item = state.line_items.get(line_item_id)
+        if item is None:
             raise NotFoundError(f"Line item '{line_item_id}' not found on deal '{deal_id}'")
+        if item.line_approval_state == "pending_approval":
+            raise LineItemLockedError(
+                f"Line item '{line_item_id}' is awaiting manager approval and can't be removed"
+            )
         del state.line_items[line_item_id]
         state.recommendations.pop(line_item_id, None)
 
@@ -156,16 +171,42 @@ class DataStore:
         item = state.line_items.get(line_item_id)
         if item is None:
             raise NotFoundError(f"Line item '{line_item_id}' not found on deal '{deal_id}'")
+        if item.line_approval_state == "pending_approval":
+            raise LineItemLockedError(
+                f"Line item '{line_item_id}' is awaiting manager approval and is locked until then"
+            )
         if product_category is not None:
             item.product_category = product_category
         if deal_value is not None:
             item.deal_value = deal_value
         item.applied_discount_pct = None
         item.decision = "pending"
+        item.override_reason = None
+        item.decided_by = None
         state.recommendations[line_item_id] = generate_recommendation(
             line_item_id, item.product_category, item.deal_value
         )
         return item
+
+    def _log(
+        self,
+        item: LineItem,
+        by: str,
+        previous_pct: float | None,
+        new_pct: float | None,
+        reason: str | None,
+        action: str,
+    ) -> None:
+        item.history.append(
+            DiscountChangeEntry(
+                at=datetime.now(timezone.utc).isoformat(),
+                by=by,
+                previous_pct=previous_pct,
+                new_pct=new_pct,
+                reason=reason,
+                action=action,
+            )
+        )
 
     def decide_line_item(
         self,
@@ -173,22 +214,74 @@ class DataStore:
         line_item_id: str,
         action: str,
         applied_discount_pct: float | None,
+        decided_by: str,
+        reason: str | None = None,
     ) -> LineItem:
         state = self.get_deal_state(deal_id)
         item = state.line_items.get(line_item_id)
         if item is None:
             raise NotFoundError(f"Line item '{line_item_id}' not found on deal '{deal_id}'")
+        if item.line_approval_state == "pending_approval":
+            raise LineItemLockedError(
+                f"Line item '{line_item_id}' already has a proposal awaiting manager approval"
+            )
 
         recommendation = state.recommendations[line_item_id]
+        previous = item.applied_discount_pct
+        item.decided_by = decided_by
+
         if action == "accept":
             item.applied_discount_pct = recommendation.recommended_pct
             item.decision = "accepted"
-        elif action == "adjust":
-            item.applied_discount_pct = applied_discount_pct
-            item.decision = "adjusted"
-        else:  # override
-            item.applied_discount_pct = applied_discount_pct
-            item.decision = "overridden"
+            item.line_approval_state = "none"
+            item.override_reason = None
+            item.pending_discount_pct = None
+            self._log(item, decided_by, previous, item.applied_discount_pct, None, "accepted")
+        else:  # propose
+            assert applied_discount_pct is not None
+            deviation = abs(applied_discount_pct - recommendation.recommended_pct)
+            item.override_reason = reason
+            if deviation <= AUTO_APPROVE_BAND_PCT:
+                item.applied_discount_pct = applied_discount_pct
+                item.decision = "adjusted"
+                item.line_approval_state = "none"
+                item.pending_discount_pct = None
+                self._log(
+                    item, decided_by, previous, applied_discount_pct, reason, "proposed_auto_applied"
+                )
+            else:
+                item.decision = "overridden"
+                item.line_approval_state = "pending_approval"
+                item.pending_discount_pct = applied_discount_pct
+                # applied_discount_pct is untouched — doesn't count toward the
+                # blended discount until a manager approves it.
+                self._log(
+                    item, decided_by, previous, applied_discount_pct, reason, "proposed_pending_approval"
+                )
+        return item
+
+    def resolve_line_item_approval(
+        self, deal_id: str, line_item_id: str, decision: str, decided_by: str
+    ) -> LineItem:
+        state = self.get_deal_state(deal_id)
+        item = state.line_items.get(line_item_id)
+        if item is None:
+            raise NotFoundError(f"Line item '{line_item_id}' not found on deal '{deal_id}'")
+        if item.line_approval_state != "pending_approval":
+            raise LineItemLockedError(f"Line item '{line_item_id}' has no proposal awaiting approval")
+
+        previous = item.applied_discount_pct
+        proposed = item.pending_discount_pct
+        if decision == "approved":
+            item.applied_discount_pct = proposed
+            item.line_approval_state = "approved"
+            self._log(item, decided_by, previous, proposed, item.override_reason, "approved")
+        else:
+            item.line_approval_state = "rejected"
+            item.decision = "pending"
+            item.override_reason = None
+            self._log(item, decided_by, previous, previous, None, "rejected")
+        item.pending_discount_pct = None
         return item
 
     def set_approval(self, deal_id: str, decision: str) -> DealState:

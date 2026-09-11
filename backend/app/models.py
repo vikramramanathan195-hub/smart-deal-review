@@ -9,7 +9,14 @@ DealStatus = Literal["within_range", "needs_approval"]
 ApprovalState = Literal["pending", "approved", "rejected"] | None
 Outcome = Literal["won", "lost"]
 LineItemDecision = Literal["pending", "accepted", "adjusted", "overridden"]
+# Gate on the *line item* itself — separate from the rep's decision label above.
+# "none": nothing awaiting a manager. "pending_approval": a proposed discount
+# outside the auto-approve band is awaiting a manager's approve/reject.
+LineApprovalState = Literal["none", "pending_approval", "approved", "rejected"]
 ProductCategory = Literal["Compute", "Storage", "Networking", "Services"]
+DiscountChangeAction = Literal[
+    "accepted", "proposed_auto_applied", "proposed_pending_approval", "approved", "rejected"
+]
 
 
 class CamelModel(BaseModel):
@@ -49,13 +56,32 @@ class Customer(CamelModel):
     avg_discount_pct: float
 
 
+class DiscountChangeEntry(CamelModel):
+    at: str
+    by: str
+    previous_pct: float | None
+    new_pct: float | None
+    reason: str | None
+    action: DiscountChangeAction
+
+
 class LineItem(CamelModel):
     id: str
     deal_id: str
     product_category: ProductCategory
     deal_value: float = Field(gt=0)
+    # The value actually counted toward the deal's blended discount. Stays put
+    # while a proposal is pending_approval — only a manager's approval moves it.
     applied_discount_pct: float | None = Field(default=None, ge=0, le=100)
     decision: LineItemDecision = "pending"
+    line_approval_state: LineApprovalState = "none"
+    # Set while line_approval_state == "pending_approval"; the number a manager
+    # is being asked to approve or reject.
+    pending_discount_pct: float | None = Field(default=None, ge=0, le=100)
+    # Reason behind the most recent proposal (pending, approved, or rejected).
+    override_reason: str | None = None
+    decided_by: str | None = None
+    history: list[DiscountChangeEntry] = Field(default_factory=list)
 
 
 class LineItemDetail(CamelModel):
@@ -113,8 +139,16 @@ class LineItemUpdate(CamelModel):
 
 
 class LineItemDecisionRequest(CamelModel):
-    action: Literal["accept", "adjust", "override"]
+    action: Literal["accept", "propose"]
     applied_discount_pct: float | None = Field(default=None, ge=0, le=100)
+    # Required for "propose" — every manually-entered discount needs one, not
+    # just ones outside the auto-approve band. Enforced in the route so the
+    # error is field-level.
+    reason: str | None = None
+
+
+class LineItemApprovalRequest(CamelModel):
+    decision: Literal["approved", "rejected"]
 
 
 class ApprovalRequest(CamelModel):
