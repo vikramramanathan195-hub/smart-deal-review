@@ -109,6 +109,7 @@ export function AiPanel({
   onAccept,
   onAdjust,
   onOverride,
+  onDiscountChange,
 }: {
   line: LineItem;
   recommendation: Recommendation;
@@ -116,6 +117,7 @@ export function AiPanel({
   onAccept: () => void;
   onAdjust: () => void;
   onOverride: () => void;
+  onDiscountChange: (discount: number | null) => void;
 }) {
   const value = typeof line.value === "number" ? line.value : 0;
   const applied = line.appliedDiscount ?? recommendation.discount;
