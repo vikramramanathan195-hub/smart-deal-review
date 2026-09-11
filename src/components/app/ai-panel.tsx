@@ -1,5 +1,6 @@
 import { Sparkles, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   currency,
@@ -109,6 +110,7 @@ export function AiPanel({
   onAccept,
   onAdjust,
   onOverride,
+  onDiscountChange,
 }: {
   line: LineItem;
   recommendation: Recommendation;
@@ -116,6 +118,7 @@ export function AiPanel({
   onAccept: () => void;
   onAdjust: () => void;
   onOverride: () => void;
+  onDiscountChange: (discount: number | null) => void;
 }) {
   const value = typeof line.value === "number" ? line.value : 0;
   const applied = line.appliedDiscount ?? recommendation.discount;
@@ -123,6 +126,14 @@ export function AiPanel({
   const maxFactor = Math.max(...recommendation.factors.map((f) => Math.abs(f.value)));
   const total = recommendation.factors.reduce((s, f) => s + f.value, 0);
   const maxHistory = Math.max(...recommendation.customer.history.map((h) => h.discount));
+  const discountError =
+    line.appliedDiscount === null
+      ? null
+      : line.appliedDiscount > 100
+        ? "Discount cannot exceed 100%"
+        : line.appliedDiscount < 0
+          ? "Discount cannot be negative"
+          : null;
 
   return (
     <PanelShell>
@@ -161,6 +172,31 @@ export function AiPanel({
                 <Button variant="outline" onClick={onOverride}>
                   Override
                 </Button>
+              </div>
+              <div className="pt-1">
+                <label className="label-caps" htmlFor={`discount-${line.id}`}>
+                  Applied discount %
+                </label>
+                <div className="relative mt-1.5">
+                  <Input
+                    id={`discount-${line.id}`}
+                    className="pr-7 tabular-nums"
+                    inputMode="decimal"
+                    aria-invalid={!!discountError}
+                    value={line.appliedDiscount === null ? "" : String(line.appliedDiscount)}
+                    placeholder={String(recommendation.discount)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9.-]/g, "");
+                      onDiscountChange(raw === "" || raw === "-" ? null : Number(raw));
+                    }}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    %
+                  </span>
+                </div>
+                {discountError && (
+                  <p className="mt-1.5 text-xs font-medium text-danger">{discountError}</p>
+                )}
               </div>
             </div>
           )}
