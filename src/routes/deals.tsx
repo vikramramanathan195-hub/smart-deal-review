@@ -157,6 +157,28 @@ function Deals() {
       <main className="mx-auto max-w-[1400px] space-y-6 px-6 py-8">
         {/* Deal header */}
         <section className="surface-card p-6">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
+            <div>
+              <label className="label-caps" htmlFor="sample-deal">
+                Sample deal
+              </label>
+              <div className="mt-1.5 w-[280px]">
+                <Select value={sampleId} onValueChange={loadSample}>
+                  <SelectTrigger id="sample-deal">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SAMPLE_DEALS.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="max-w-md text-xs text-muted-foreground">{activeSample.summary}</p>
+          </div>
           <div className="grid gap-6 lg:grid-cols-3">
             <div>
               <label className="label-caps" htmlFor="deal-name">
