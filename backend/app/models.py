@@ -14,6 +14,10 @@ LineItemDecision = Literal["pending", "accepted", "adjusted", "overridden"]
 # outside the auto-approve band is awaiting a manager's approve/reject.
 LineApprovalState = Literal["none", "pending_approval", "approved", "rejected"]
 ProductCategory = Literal["Compute", "Storage", "Networking", "Services"]
+TermLength = Literal["12mo", "24mo", "36mo"]
+# Each region implies a native currency/locale on the frontend (see
+# frontend/lib/fx-rates.ts) — the backend just stores which one a deal is in.
+Region = Literal["north_america", "uk", "eurozone", "japan", "india", "brazil"]
 DiscountChangeAction = Literal[
     "accepted", "proposed_auto_applied", "proposed_pending_approval", "approved", "rejected"
 ]
@@ -92,17 +96,40 @@ class LineItemDetail(CamelModel):
 class Deal(CamelModel):
     id: str
     name: str
-    term_length: Literal["12mo", "24mo", "36mo"]
+    term_length: TermLength
     product_categories: list[ProductCategory]
     sample_deal_key: str
     status: DealStatus
     approval_state: ApprovalState = None
+    region: Region = "north_america"
 
 
 class DealSummary(CamelModel):
     id: str
     name: str
     status: DealStatus
+    approval_state: ApprovalState = None
+    deal_value_total: float
+    blended_discount_pct: float
+    region: Region
+    customer_name: str
+    line_item_count: int
+    term_length: TermLength
+    product_categories: list[ProductCategory]
+
+
+class DealCreate(CamelModel):
+    name: str = Field(min_length=1)
+    customer_name: str = Field(min_length=1)
+    term_length: TermLength = "12mo"
+    region: Region = "north_america"
+    product_categories: list[ProductCategory] = Field(min_length=1)
+
+
+class DealUpdate(CamelModel):
+    region: Region | None = None
+    product_categories: list[ProductCategory] | None = None
+    term_length: TermLength | None = None
 
 
 class DealDetail(CamelModel):

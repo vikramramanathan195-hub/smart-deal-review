@@ -89,6 +89,7 @@ NORTHWIND_DEAL = Deal(
     sample_deal_key="northwind",
     status="within_range",
     approval_state=None,
+    region="north_america",
 )
 
 # (line_item_id, product_category, deal_value, recommended_pct, confidence, factors)
@@ -106,10 +107,114 @@ CERULEAN_DEAL = Deal(
     sample_deal_key="cerulean",
     status="needs_approval",
     approval_state=None,
+    region="eurozone",
 )
 
 CERULEAN_LINE_ITEMS = [
     ("line-esc-1", "Networking", 220000.0, 18.0, "low", AGGRESSIVE_FACTORS),
     ("line-esc-2", "Services", 130000.0, 19.5, "low", SERVICES_AGGRESSIVE_FACTORS),
     ("line-esc-3", "Compute", 75000.0, 16.0, "medium", AGGRESSIVE_FACTORS),
+]
+
+MERIDIAN_COMPUTE_FACTORS = [
+    _factor("Baseline (segment: Enterprise)", 6.0),
+    _factor("Customer tenure (7 yrs)", 1.5),
+    _factor("Deal size tier", 1.0),
+    _factor("Renewal loyalty credit", 0.5),
+    _factor("Margin floor guardrail", -1.0),
+]
+
+MERIDIAN_SERVICES_FACTORS = [
+    _factor("Baseline (segment: Enterprise)", 6.0),
+    _factor("Customer tenure (7 yrs)", 1.5),
+    _factor("Deal size tier", 0.5),
+    _factor("Renewal loyalty credit", 1.5),
+    _factor("Margin floor guardrail", -0.5),
+]
+
+MERIDIAN_CUSTOMER = Customer(
+    id="cust-meridian",
+    name="Meridian Health Systems",
+    partner_since=2018,
+    lifetime_value="$2.86M",
+    renewal_rate_pct=100.0,
+    avg_discount_pct=8.2,
+)
+
+MERIDIAN_HISTORY = [
+    DiscountHistoryEntry(customer_id="cust-meridian", date="Apr 2023", discount_pct=7.5, outcome="won"),
+    DiscountHistoryEntry(customer_id="cust-meridian", date="Apr 2024", discount_pct=8.0, outcome="won"),
+    DiscountHistoryEntry(customer_id="cust-meridian", date="Apr 2025", discount_pct=8.5, outcome="won"),
+]
+
+MERIDIAN_DEAL = Deal(
+    id="meridian",
+    name="Meridian Health Systems — Annual Renewal",
+    term_length="12mo",
+    product_categories=["Compute", "Services"],
+    sample_deal_key="meridian",
+    status="within_range",
+    approval_state=None,
+    region="india",
+)
+
+MERIDIAN_LINE_ITEMS = [
+    ("line-mer-1", "Compute", 145000.0, 8.0, "high", MERIDIAN_COMPUTE_FACTORS),
+    ("line-mer-2", "Services", 38000.0, 9.0, "high", MERIDIAN_SERVICES_FACTORS),
+]
+
+ATLAS_COMPUTE_FACTORS = [
+    _factor("Baseline (segment: Enterprise)", 9.0),
+    _factor("Customer tenure (2 yrs)", 1.0),
+    _factor("Deal size tier", 3.0),
+    _factor("Multi-region rollout complexity", 2.5),
+    _factor("Margin floor guardrail", -2.0),
+]
+
+ATLAS_NETWORKING_FACTORS = [
+    _factor("Baseline (segment: Enterprise)", 9.0),
+    _factor("Customer tenure (2 yrs)", 1.0),
+    _factor("Deal size tier", 2.0),
+    _factor("Multi-region rollout complexity", 4.5),
+    _factor("Margin floor guardrail", -2.0),
+]
+
+ATLAS_STORAGE_FACTORS = [
+    _factor("Baseline (segment: Enterprise)", 9.0),
+    _factor("Customer tenure (2 yrs)", 1.0),
+    _factor("Deal size tier", 1.0),
+    _factor("Multi-region rollout complexity", 3.0),
+    _factor("Margin floor guardrail", -2.0),
+]
+
+ATLAS_CUSTOMER = Customer(
+    id="cust-atlas",
+    name="Atlas Manufacturing",
+    partner_since=2024,
+    lifetime_value="$890K",
+    renewal_rate_pct=100.0,
+    avg_discount_pct=11.9,
+)
+
+ATLAS_HISTORY = [
+    DiscountHistoryEntry(customer_id="cust-atlas", date="May 2024", discount_pct=10.5, outcome="won"),
+    DiscountHistoryEntry(customer_id="cust-atlas", date="Nov 2024", discount_pct=12.0, outcome="won"),
+    DiscountHistoryEntry(customer_id="cust-atlas", date="Aug 2025", discount_pct=13.5, outcome="lost"),
+]
+
+ATLAS_DEAL = Deal(
+    id="atlas",
+    name="Atlas Manufacturing — Global Rollout",
+    term_length="36mo",
+    product_categories=["Compute", "Networking", "Storage"],
+    sample_deal_key="atlas",
+    status="within_range",
+    approval_state=None,
+    region="japan",
+)
+
+ATLAS_LINE_ITEMS = [
+    ("line-atl-1", "Compute", 310000.0, 13.5, "medium", ATLAS_COMPUTE_FACTORS),
+    ("line-atl-2", "Networking", 165000.0, 14.5, "medium", ATLAS_NETWORKING_FACTORS),
+    ("line-atl-3", "Storage", 98000.0, 12.0, "high", ATLAS_STORAGE_FACTORS),
 ]

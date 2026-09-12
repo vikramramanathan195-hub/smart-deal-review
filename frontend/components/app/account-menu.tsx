@@ -51,7 +51,7 @@ export function AccountMenu() {
 
   const handleSignOut = () => {
     signOut();
-    router.push("/");
+    router.push("/sign-in");
   };
 
   return (

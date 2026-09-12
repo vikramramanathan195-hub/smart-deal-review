@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Search } from "lucide-react";
 import type { ReactNode } from "react";
+import { ThemeToggle } from "@/components/app/theme-toggle";
 
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
@@ -21,12 +23,13 @@ export function TopNav({ right }: { right?: ReactNode }) {
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-6">
-        <Link href="/deals" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+        <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
           <LogoMark />
           <span className="text-[15px] font-semibold tracking-tight">Deal Discount Review</span>
         </Link>
         <nav className="ml-6 hidden items-center gap-1 md:flex">
           {[
+            { to: "/", label: "Home" },
             { to: "/deals", label: "Deal Review" },
             { to: "/health", label: "System Health" },
           ].map((item) => (
@@ -41,7 +44,21 @@ export function TopNav({ right }: { right?: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-3">{right}</div>
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => document.dispatchEvent(new CustomEvent("command-palette:open"))}
+            className="hidden items-center gap-2 rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
+          >
+            <Search className="h-3.5 w-3.5" />
+            Search
+            <kbd className="ml-1 rounded border border-border bg-card px-1 font-sans text-[10px] font-semibold">
+              ⌘K
+            </kbd>
+          </button>
+          <ThemeToggle />
+          {right}
+        </div>
       </div>
     </header>
   );

@@ -10,6 +10,7 @@ export type LineItemDecision = "pending" | "accepted" | "adjusted" | "overridden
 export type LineApprovalState = "none" | "pending_approval" | "approved" | "rejected";
 export type ProductCategory = "Compute" | "Storage" | "Networking" | "Services";
 export type TermLength = "12mo" | "24mo" | "36mo";
+export type Region = "north_america" | "uk" | "eurozone" | "japan" | "india" | "brazil";
 export type DiscountChangeAction =
   "accepted" | "proposed_auto_applied" | "proposed_pending_approval" | "approved" | "rejected";
 
@@ -79,12 +80,35 @@ export type Deal = {
   sampleDealKey: string;
   status: DealStatus;
   approvalState: ApprovalState;
+  region: Region;
 };
 
 export type DealSummary = {
   id: string;
   name: string;
   status: DealStatus;
+  approvalState: ApprovalState;
+  dealValueTotal: number;
+  blendedDiscountPct: number;
+  region: Region;
+  customerName: string;
+  lineItemCount: number;
+  termLength: TermLength;
+  productCategories: ProductCategory[];
+};
+
+export type DealUpdateBody = {
+  region?: Region;
+  productCategories?: ProductCategory[];
+  termLength?: TermLength;
+};
+
+export type DealCreateBody = {
+  name: string;
+  customerName: string;
+  termLength: TermLength;
+  region: Region;
+  productCategories: ProductCategory[];
 };
 
 export type DealDetail = {

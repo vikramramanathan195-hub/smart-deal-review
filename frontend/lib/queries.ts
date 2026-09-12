@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "@/lib/api";
 import type {
   ApprovalBody,
+  DealCreateBody,
+  DealUpdateBody,
   LineItemApprovalBody,
   LineItemCreateBody,
   LineItemDecisionBody,
@@ -30,12 +32,35 @@ export function useDealsQuery() {
   });
 }
 
+export function useCreateDealMutation() {
+  const { token } = useSession();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: DealCreateBody) => api.createDeal(token!, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealKeys.all });
+    },
+  });
+}
+
 export function useDealQuery(dealId: string) {
   const { token, isSignedIn } = useSession();
   return useQuery({
     queryKey: dealKeys.detail(dealId),
     queryFn: () => api.getDeal(token!, dealId),
     enabled: isSignedIn && !!dealId,
+  });
+}
+
+export function useUpdateDealMutation(dealId: string) {
+  const { token } = useSession();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: DealUpdateBody) => api.updateDeal(token!, dealId, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealKeys.detail(dealId) });
+      queryClient.invalidateQueries({ queryKey: dealKeys.all });
+    },
   });
 }
 
@@ -118,6 +143,18 @@ export function useUndoApprovalMutation(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => api.undoApproval(token!, dealId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealKeys.detail(dealId) });
+      queryClient.invalidateQueries({ queryKey: dealKeys.all });
+    },
+  });
+}
+
+export function useUndoLineItemDecisionMutation(dealId: string) {
+  const { token } = useSession();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (lineItemId: string) => api.undoLineItemDecision(token!, dealId, lineItemId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealKeys.detail(dealId) });
       queryClient.invalidateQueries({ queryKey: dealKeys.all });

@@ -1,7 +1,9 @@
 import type {
   ApprovalBody,
   ApprovalResponse,
+  DealCreateBody,
   DealDetail,
+  DealUpdateBody,
   DealSummary,
   LineItemApprovalBody,
   LineItemCreateBody,
@@ -77,8 +79,20 @@ export function listDeals(token: string): Promise<DealSummary[]> {
   return request<DealSummary[]>("/api/deals", { token });
 }
 
+export function createDeal(token: string, body: DealCreateBody): Promise<DealDetail> {
+  return request<DealDetail>("/api/deals", { method: "POST", token, body });
+}
+
 export function getDeal(token: string, dealId: string): Promise<DealDetail> {
   return request<DealDetail>(`/api/deals/${dealId}`, { token });
+}
+
+export function updateDeal(
+  token: string,
+  dealId: string,
+  body: DealUpdateBody,
+): Promise<DealDetail> {
+  return request<DealDetail>(`/api/deals/${dealId}`, { method: "PATCH", token, body });
 }
 
 export function addLineItem(
@@ -153,4 +167,15 @@ export function decideApproval(
 
 export function undoApproval(token: string, dealId: string): Promise<ApprovalResponse> {
   return request<ApprovalResponse>(`/api/deals/${dealId}/approval/undo`, { method: "POST", token });
+}
+
+export function undoLineItemDecision(
+  token: string,
+  dealId: string,
+  lineItemId: string,
+): Promise<LineItemDetail> {
+  return request<LineItemDetail>(
+    `/api/deals/${dealId}/line-items/${lineItemId}/decision/undo`,
+    { method: "POST", token },
+  );
 }

@@ -4,9 +4,10 @@ from app.auth import get_current_user, require_role
 from app.models import (
     ApprovalRequest,
     ApprovalResponse,
-    Deal,
+    DealCreate,
     DealDetail,
     DealSummary,
+    DealUpdate,
     LineItemApprovalRequest,
     LineItemCreate,
     LineItemDecisionRequest,
@@ -49,15 +50,62 @@ def _get_state_or_404(deal_id: str) -> DealState:
 
 @router.get("", response_model=list[DealSummary])
 def list_deals(_user=Depends(get_current_user)) -> list[DealSummary]:
-    deals: list[Deal] = store.list_deals()
     for deal_id in list(store.deals):
         _sync_status(store.deals[deal_id])
-    return [DealSummary(id=d.id, name=d.name, status=d.status) for d in deals]
+    return [
+        DealSummary(
+            id=state.deal.id,
+            name=state.deal.name,
+            status=state.deal.status,
+            approval_state=state.deal.approval_state,
+            deal_value_total=sum(item.deal_value for item in state.line_items.values()),
+            blended_discount_pct=store.blended_discount_pct(state),
+            region=state.deal.region,
+            customer_name=state.customer.name,
+            line_item_count=len(state.line_items),
+            term_length=state.deal.term_length,
+            product_categories=state.deal.product_categories,
+        )
+        for state in store.deals.values()
+    ]
+
+
+@router.post("", response_model=DealDetail, status_code=status.HTTP_201_CREATED)
+def create_deal(body: DealCreate, _user=Depends(get_current_user)) -> DealDetail:
+    state = store.create_deal(
+        name=body.name,
+        customer_name=body.customer_name,
+        term_length=body.term_length,
+        region=body.region,
+        product_categories=body.product_categories,
+    )
+    return _to_detail(state)
 
 
 @router.get("/{deal_id}", response_model=DealDetail)
 def get_deal(deal_id: str, _user=Depends(get_current_user)) -> DealDetail:
     state = _get_state_or_404(deal_id)
+    return _to_detail(state)
+
+
+@router.patch("/{deal_id}", response_model=DealDetail)
+def update_deal(deal_id: str, body: DealUpdate, _user=Depends(get_current_user)) -> DealDetail:
+    state = _get_state_or_404(deal_id)
+    if body.region is not None:
+        # Region drives currency on the frontend. Changing it never converts
+        # existing line item values — they're just reinterpreted in the new
+        # currency going forward, same as switching a spreadsheet's currency
+        # column without recalculating the numbers in it.
+        state.deal.region = body.region
+    if body.product_categories is not None:
+        if not body.product_categories:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A deal must have at least one product category.",
+            )
+        state.deal.product_categories = body.product_categories
+    if body.term_length is not None:
+        state.deal.term_length = body.term_length
     return _to_detail(state)
 
 
@@ -154,6 +202,18 @@ def decide_line_item_approval(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except LineItemLockedError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    state = store.get_deal_state(deal_id)
+    return LineItemDetail(line_item=item, recommendation=state.recommendations[item.id])
+
+
+@router.post("/{deal_id}/line-items/{line_item_id}/decision/undo", response_model=LineItemDetail)
+def undo_line_item_decision(
+    deal_id: str, line_item_id: str, _user=Depends(get_current_user)
+) -> LineItemDetail:
+    try:
+        item = store.undo_line_item_decision(deal_id, line_item_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     state = store.get_deal_state(deal_id)
     return LineItemDetail(line_item=item, recommendation=state.recommendations[item.id])
 

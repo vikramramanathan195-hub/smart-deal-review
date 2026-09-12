@@ -22,10 +22,18 @@ AUTO_APPROVE_BAND_PCT = 3.0
 class LineItemLockedError(Exception):
     """Raised when an action targets a line item that's pending manager approval."""
 from app.seed_data import (
+    ATLAS_CUSTOMER,
+    ATLAS_DEAL,
+    ATLAS_HISTORY,
+    ATLAS_LINE_ITEMS,
     CERULEAN_CUSTOMER,
     CERULEAN_DEAL,
     CERULEAN_HISTORY,
     CERULEAN_LINE_ITEMS,
+    MERIDIAN_CUSTOMER,
+    MERIDIAN_DEAL,
+    MERIDIAN_HISTORY,
+    MERIDIAN_LINE_ITEMS,
     NORTHWIND_CUSTOMER,
     NORTHWIND_DEAL,
     NORTHWIND_HISTORY,
@@ -45,6 +53,11 @@ class DealState:
     line_items: dict[str, LineItem] = field(default_factory=dict)
     recommendations: dict[str, DiscountRecommendation] = field(default_factory=dict)
     approval_history: list[str | None] = field(default_factory=list)
+    # One undo stack per line item, mirroring approval_history above — a
+    # snapshot of the decision-related fields is pushed before every mutation
+    # in decide_line_item / resolve_line_item_approval, so either the rep's
+    # or the manager's most recent action on that line can be popped off.
+    line_item_snapshots: dict[str, list[dict]] = field(default_factory=dict)
 
 
 def _net_value(deal_value: float, pct: float) -> float:
@@ -85,6 +98,8 @@ class DataStore:
         for deal, customer, history, line_item_specs in (
             (NORTHWIND_DEAL, NORTHWIND_CUSTOMER, NORTHWIND_HISTORY, NORTHWIND_LINE_ITEMS),
             (CERULEAN_DEAL, CERULEAN_CUSTOMER, CERULEAN_HISTORY, CERULEAN_LINE_ITEMS),
+            (MERIDIAN_DEAL, MERIDIAN_CUSTOMER, MERIDIAN_HISTORY, MERIDIAN_LINE_ITEMS),
+            (ATLAS_DEAL, ATLAS_CUSTOMER, ATLAS_HISTORY, ATLAS_LINE_ITEMS),
         ):
             state = DealState(
                 deal=deal.model_copy(deep=True),
@@ -115,9 +130,6 @@ class DataStore:
             raise NotFoundError(f"Deal '{deal_id}' not found")
         return state
 
-    def list_deals(self) -> list[Deal]:
-        return [state.deal for state in self.deals.values()]
-
     def blended_discount_pct(self, state: DealState) -> float:
         total_value = 0.0
         total_weighted = 0.0
@@ -132,6 +144,39 @@ class DataStore:
         if total_value == 0:
             return 0.0
         return round(total_weighted / total_value, 1)
+
+    def create_deal(
+        self,
+        name: str,
+        customer_name: str,
+        term_length: str,
+        region: str,
+        product_categories: list[str],
+    ) -> DealState:
+        deal_id = f"deal-{uuid.uuid4().hex[:8]}"
+        deal = Deal(
+            id=deal_id,
+            name=name,
+            term_length=term_length,
+            product_categories=product_categories,
+            sample_deal_key=deal_id,
+            status="within_range",
+            approval_state=None,
+            region=region,
+        )
+        # A brand-new deal has no track record yet — zeroed stats and an
+        # empty history are the honest starting point, not placeholder data.
+        customer = Customer(
+            id=f"cust-{uuid.uuid4().hex[:8]}",
+            name=customer_name,
+            partner_since=datetime.now(timezone.utc).year,
+            lifetime_value="$0",
+            renewal_rate_pct=0.0,
+            avg_discount_pct=0.0,
+        )
+        state = DealState(deal=deal, customer=customer, discount_history=[])
+        self.deals[deal_id] = state
+        return state
 
     def add_line_item(self, deal_id: str, product_category: str, deal_value: float) -> LineItem:
         state = self.get_deal_state(deal_id)
@@ -208,6 +253,39 @@ class DataStore:
             )
         )
 
+    def _snapshot_line_item(self, state: DealState, item: LineItem) -> None:
+        state.line_item_snapshots.setdefault(item.id, []).append(
+            {
+                "decision": item.decision,
+                "line_approval_state": item.line_approval_state,
+                "applied_discount_pct": item.applied_discount_pct,
+                "pending_discount_pct": item.pending_discount_pct,
+                "override_reason": item.override_reason,
+                "decided_by": item.decided_by,
+                "history_len": len(item.history),
+            }
+        )
+
+    def undo_line_item_decision(self, deal_id: str, line_item_id: str) -> LineItem:
+        state = self.get_deal_state(deal_id)
+        item = state.line_items.get(line_item_id)
+        if item is None:
+            raise NotFoundError(f"Line item '{line_item_id}' not found on deal '{deal_id}'")
+        stack = state.line_item_snapshots.get(line_item_id)
+        if not stack:
+            raise NotFoundError(f"No decision to undo for line item '{line_item_id}'")
+        snap = stack.pop()
+        item.decision = snap["decision"]
+        item.line_approval_state = snap["line_approval_state"]
+        item.applied_discount_pct = snap["applied_discount_pct"]
+        item.pending_discount_pct = snap["pending_discount_pct"]
+        item.override_reason = snap["override_reason"]
+        item.decided_by = snap["decided_by"]
+        # Keep the visible history log in sync — otherwise it'd still show
+        # the action that was just undone as if it happened.
+        item.history = item.history[: snap["history_len"]]
+        return item
+
     def decide_line_item(
         self,
         deal_id: str,
@@ -226,6 +304,7 @@ class DataStore:
                 f"Line item '{line_item_id}' already has a proposal awaiting manager approval"
             )
 
+        self._snapshot_line_item(state, item)
         recommendation = state.recommendations[line_item_id]
         previous = item.applied_discount_pct
         item.decided_by = decided_by
@@ -270,6 +349,7 @@ class DataStore:
         if item.line_approval_state != "pending_approval":
             raise LineItemLockedError(f"Line item '{line_item_id}' has no proposal awaiting approval")
 
+        self._snapshot_line_item(state, item)
         previous = item.applied_discount_pct
         proposed = item.pending_discount_pct
         if decision == "approved":

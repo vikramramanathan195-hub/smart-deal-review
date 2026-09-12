@@ -1,26 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, PackageOpen, Loader2 } from "lucide-react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Plus, PackageOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { TopNav } from "@/components/app/top-nav";
 import { AccountMenu } from "@/components/app/account-menu";
 import { LineItemCard } from "@/components/app/line-item-card";
+import { CategoryMultiSelect } from "@/components/app/category-multiselect";
+import { SaveStateIndicator, type SaveState } from "@/components/app/save-state";
 import { AiPanelSkeleton } from "@/components/app/ai-panel";
 import { useSession } from "@/lib/session";
-import { currency, pct, policyStatus, PRODUCT_CATEGORIES } from "@/lib/deal-data";
-import type { LineItemDetail, ProductCategory } from "@/lib/api-types";
+import {
+  currency,
+  formatMoney,
+  pct,
+  policyStatus,
+  PRODUCT_CATEGORIES,
+  TERM_LENGTH_LABEL,
+  TERM_LENGTHS,
+} from "@/lib/deal-data";
+import { formatFxAsOf, REGIONS, toUsd } from "@/lib/fx-rates";
+import type { LineItemDetail, ProductCategory, Region, TermLength } from "@/lib/api-types";
 import {
   Select,
   SelectContent,
@@ -35,11 +38,14 @@ import {
   useDealsQuery,
   useDecisionMutation,
   useLineItemApprovalMutation,
+  useUndoLineItemDecisionMutation,
   useRemoveLineItemMutation,
   useUndoApprovalMutation,
+  useUpdateDealMutation,
   useUpdateLineItemMutation,
 } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
+import { useCountUp } from "@/lib/use-count-up";
 
 function errorMessage(error: unknown): string {
   return error instanceof ApiError || error instanceof Error
@@ -59,14 +65,52 @@ function nextLineItemDefaults(existingCount: number): {
 }
 
 export default function Deals() {
-  const { role } = useSession();
+  return (
+    <Suspense fallback={<CenteredMessage>Loading deals…</CenteredMessage>}>
+      <DealsContent />
+    </Suspense>
+  );
+}
+
+function DealsContent() {
+  const { role, isSignedIn } = useSession();
   const readOnly = role === "manager";
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Deep link from the home dashboard, e.g. /deals?deal=cerulean.
+  const dealParam = searchParams.get("deal");
+
+  // Session lives only in memory (no persistence) — a refresh or a direct
+  // visit to /deals loses it. Without this, useDealsQuery's `enabled:
+  // isSignedIn` leaves the query permanently in isPending with nothing to
+  // ever resolve it, so the page would show "Loading deals…" forever
+  // instead of sending the user back to sign in.
+  useEffect(() => {
+    if (!isSignedIn) router.replace("/sign-in");
+  }, [isSignedIn, router]);
 
   const dealsQuery = useDealsQuery();
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
-  const [pendingRemoval, setPendingRemoval] = useState<LineItemDetail | null>(null);
 
-  const currentDealId = selectedDealId ?? dealsQuery.data?.[0]?.id ?? "";
+  // Soft-delete: a removed line item hides immediately and the actual
+  // DELETE is deferred behind an undo window, so leaving the page (or
+  // hitting Undo) within the window keeps the backend untouched.
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [regionSaveState, setRegionSaveState] = useState<SaveState>("idle");
+  const [termSaveState, setTermSaveState] = useState<SaveState>("idle");
+  const [categoriesSaveState, setCategoriesSaveState] = useState<SaveState>("idle");
+  const removeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const UNDO_WINDOW_MS = 6000;
+
+  useEffect(() => {
+    const timers = removeTimers.current;
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
+  }, []);
+
+  const currentDealId = selectedDealId ?? dealParam ?? dealsQuery.data?.[0]?.id ?? "";
 
   const dealQuery = useDealQuery(currentDealId);
 
@@ -75,9 +119,20 @@ export default function Deals() {
   const removeLineItemMutation = useRemoveLineItemMutation(currentDealId);
   const decisionMutation = useDecisionMutation(currentDealId);
   const lineItemApprovalMutation = useLineItemApprovalMutation(currentDealId);
+  const undoLineItemMutation = useUndoLineItemDecisionMutation(currentDealId);
   const approvalMutation = useApprovalMutation(currentDealId);
   const undoApprovalMutation = useUndoApprovalMutation(currentDealId);
+  const updateDealMutation = useUpdateDealMutation(currentDealId);
 
+  const rawDealValueTotal = (dealQuery.data?.lineItems ?? [])
+    .filter((li) => !removedIds.has(li.lineItem.id))
+    .reduce((s, li) => s + li.lineItem.dealValue, 0);
+  const animatedDealValueTotal = useCountUp(rawDealValueTotal);
+  const animatedBlended = useCountUp(dealQuery.data?.blendedDiscountPct ?? 0);
+
+  if (!isSignedIn) {
+    return <CenteredMessage>Redirecting to sign in…</CenteredMessage>;
+  }
   if (dealsQuery.isPending) {
     return <CenteredMessage>Loading deals…</CenteredMessage>;
   }
@@ -88,15 +143,26 @@ export default function Deals() {
   }
 
   const deal = dealQuery.data;
-  const lineItems = deal?.lineItems ?? [];
+  const region: Region = deal?.deal.region ?? "north_america";
+  const lineItems = (deal?.lineItems ?? []).filter((li) => !removedIds.has(li.lineItem.id));
   const blended = deal?.blendedDiscountPct ?? 0;
   const policy = policyStatus(blended);
-  const statusStyles = {
-    within: "bg-success-soft text-success",
-    exceeds: "bg-danger-soft text-danger",
-  }[policy.status];
+  // The policy pill is a fact about the numbers and never reverts once a
+  // deal exceeds the ceiling — a manager's decision doesn't retroactively
+  // bring the discount back in range. Once one exists, show that decision
+  // instead of leaving a red "Exceeds Policy" pill sitting next to a
+  // disabled "Deal Approved" button, which reads as contradictory.
+  const approvalState = deal?.deal.approvalState ?? null;
+  const dealBadge =
+    policy.status === "within"
+      ? { label: "Within Range", cls: "bg-success-soft text-success" }
+      : approvalState === "approved"
+        ? { label: "Approved", cls: "bg-success-soft text-success" }
+        : approvalState === "rejected"
+          ? { label: "Changes Requested", cls: "bg-warning-soft text-warning" }
+          : { label: "Exceeds Policy", cls: "bg-danger-soft text-danger" };
   const managerActionsEnabled = blended > 15;
-  const dealValueTotal = lineItems.reduce((s, li) => s + li.lineItem.dealValue, 0);
+  const dealValueTotal = rawDealValueTotal;
 
   const handleAddLineItem = () => {
     const body = nextLineItemDefaults(lineItems.length);
@@ -119,14 +185,37 @@ export default function Deals() {
     );
   };
 
-  const handleRemove = (lineItemId: string) => {
-    removeLineItemMutation.mutate(lineItemId, {
-      onSuccess: () => setPendingRemoval(null),
-      onError: (error) => {
-        toast.error("Couldn't remove line item", { description: errorMessage(error) });
-        setPendingRemoval(null);
-      },
+  const handleSoftRemove = (detail: LineItemDetail) => {
+    const lineItemId = detail.lineItem.id;
+    setRemovedIds((prev) => new Set(prev).add(lineItemId));
+
+    const restore = () => {
+      const timer = removeTimers.current.get(lineItemId);
+      if (timer) clearTimeout(timer);
+      removeTimers.current.delete(lineItemId);
+      setRemovedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(lineItemId);
+        return next;
+      });
+    };
+
+    toast(`${detail.lineItem.productCategory} removed`, {
+      description: formatMoney(detail.lineItem.dealValue, region),
+      duration: UNDO_WINDOW_MS,
+      action: { label: "Undo", onClick: restore },
     });
+
+    const timer = setTimeout(() => {
+      removeTimers.current.delete(lineItemId);
+      removeLineItemMutation.mutate(lineItemId, {
+        onError: (error) => {
+          toast.error("Couldn't remove line item", { description: errorMessage(error) });
+          restore();
+        },
+      });
+    }, UNDO_WINDOW_MS);
+    removeTimers.current.set(lineItemId, timer);
   };
 
   // Reject on failure so the panel can keep its edit form open; the toast
@@ -170,6 +259,16 @@ export default function Deals() {
     }
   };
 
+  const handleUndoLineItemDecision = async (lineItemId: string) => {
+    try {
+      await undoLineItemMutation.mutateAsync(lineItemId);
+      toast.success("Decision undone");
+    } catch (error) {
+      toast.error("Couldn't undo that decision", { description: errorMessage(error) });
+      throw error;
+    }
+  };
+
   const handleApproval = (decision: "approved" | "rejected") => {
     approvalMutation.mutate(
       { decision },
@@ -187,6 +286,57 @@ export default function Deals() {
     });
   };
 
+  // Region only changes which currency the deal's numbers are *interpreted*
+  // and displayed in going forward — it never rewrites the underlying
+  // numbers, same as re-labeling a spreadsheet column without recalculating
+  // the values in it.
+  const flashSaved = (setState: (s: SaveState) => void) => {
+    setState("saved");
+    setTimeout(() => setState("idle"), 2000);
+  };
+
+  const handleRegionChange = (nextRegion: string) => {
+    setRegionSaveState("saving");
+    updateDealMutation.mutate(
+      { region: nextRegion as Region },
+      {
+        onSuccess: () => flashSaved(setRegionSaveState),
+        onError: (error) => {
+          setRegionSaveState("idle");
+          toast.error("Couldn't update region", { description: errorMessage(error) });
+        },
+      },
+    );
+  };
+
+  const handleTermChange = (nextTerm: string) => {
+    setTermSaveState("saving");
+    updateDealMutation.mutate(
+      { termLength: nextTerm as TermLength },
+      {
+        onSuccess: () => flashSaved(setTermSaveState),
+        onError: (error) => {
+          setTermSaveState("idle");
+          toast.error("Couldn't update term length", { description: errorMessage(error) });
+        },
+      },
+    );
+  };
+
+  const handleProductCategoriesChange = (next: ProductCategory[]) => {
+    setCategoriesSaveState("saving");
+    updateDealMutation.mutate(
+      { productCategories: next },
+      {
+        onSuccess: () => flashSaved(setCategoriesSaveState),
+        onError: (error) => {
+          setCategoriesSaveState("idle");
+          toast.error("Couldn't update product categories", { description: errorMessage(error) });
+        },
+      },
+    );
+  };
+
   return (
     <div className="min-h-screen">
       <TopNav right={<AccountMenu />} />
@@ -194,26 +344,43 @@ export default function Deals() {
       <main className="mx-auto max-w-[1400px] space-y-6 px-6 py-8">
         {/* Deal header */}
         <section className="surface-card p-6">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
-            <div>
-              <label className="label-caps" htmlFor="sample-deal">
-                Sample deal
-              </label>
-              <div className="mt-1.5 w-[280px]">
-                <Select value={currentDealId} onValueChange={setSelectedDealId}>
-                  <SelectTrigger id="sample-deal">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dealsQuery.data.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          <div className="mb-6 flex flex-wrap items-center gap-1.5 border-b border-border pb-6 text-sm">
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              All deals
+            </Link>
+            <span className="text-muted-foreground" aria-hidden="true">
+              /
+            </span>
+            <Select value={currentDealId} onValueChange={setSelectedDealId}>
+              <SelectTrigger
+                aria-label="Switch deal"
+                className="h-8 w-auto min-w-[220px] max-w-[420px] gap-1.5 border-none bg-transparent px-2 font-semibold shadow-none hover:bg-muted"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {dealsQuery.data.map((d) => {
+                  const policy = policyStatus(d.blendedDiscountPct);
+                  return (
+                    <SelectItem key={d.id} value={d.id}>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                            policy.status === "exceeds" ? "bg-danger" : "bg-success"
+                          }`}
+                          aria-hidden="true"
+                        />
+                        <span className="truncate">{d.name}</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
 
           {dealQuery.isPending ? (
@@ -223,18 +390,85 @@ export default function Deals() {
               Couldn&apos;t load this deal — {errorMessage(dealQuery.error)}
             </p>
           ) : deal ? (
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 lg:grid-cols-4">
               <div>
                 <label className="label-caps">Deal name</label>
-                <p className="mt-2 text-sm font-medium">{deal.deal.name}</p>
+                <h1 className="mt-2 text-sm font-medium">{deal.deal.name}</h1>
               </div>
               <div>
-                <span className="label-caps">Term length</span>
-                <p className="mt-2 text-sm font-medium">{deal.deal.termLength}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="label-caps" htmlFor="deal-term">
+                    Term length
+                  </label>
+                  <SaveStateIndicator state={termSaveState} />
+                </div>
+                <div className="mt-1.5">
+                  {readOnly ? (
+                    <p className="py-2 text-sm font-medium">
+                      {TERM_LENGTH_LABEL[deal.deal.termLength]}
+                    </p>
+                  ) : (
+                    <Select value={deal.deal.termLength} onValueChange={handleTermChange}>
+                      <SelectTrigger id="deal-term" disabled={updateDealMutation.isPending}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TERM_LENGTHS.map((term) => (
+                          <SelectItem key={term} value={term}>
+                            {TERM_LENGTH_LABEL[term]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
               <div>
-                <span className="label-caps">Product categories</span>
-                <p className="mt-2 text-sm font-medium">{deal.deal.productCategories.join(", ")}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="label-caps">Product categories</span>
+                  <SaveStateIndicator state={categoriesSaveState} />
+                </div>
+                <div className="mt-2">
+                  <CategoryMultiSelect
+                    value={deal.deal.productCategories}
+                    onChange={handleProductCategoriesChange}
+                    disabled={readOnly}
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Deal-level tags for search and reporting — each line item below has its own
+                  category driving its AI recommendation.
+                </p>
+              </div>
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="label-caps" htmlFor="deal-region">
+                    Region
+                  </label>
+                  <SaveStateIndicator state={regionSaveState} />
+                </div>
+                <div className="mt-1.5">
+                  <Select value={region} onValueChange={handleRegionChange}>
+                    <SelectTrigger id="deal-region" disabled={updateDealMutation.isPending}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REGIONS.map((r) => (
+                        <SelectItem key={r.value} value={r.value}>
+                          {r.label} ({r.currencyCode})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {lineItems.length > 0 && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Line item values are not being converted — enter values in the new currency.
+                  </p>
+                )}
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  FX rates last synced {formatFxAsOf()}
+                </p>
               </div>
             </div>
           ) : null}
@@ -248,7 +482,7 @@ export default function Deals() {
                 <h2 className="text-base font-semibold tracking-tight">Line Items</h2>
                 <p className="text-xs text-muted-foreground">
                   {lineItems.length} {lineItems.length === 1 ? "line" : "lines"} ·{" "}
-                  {currency(dealValueTotal)}
+                  {formatMoney(dealValueTotal, region)}
                 </p>
               </div>
 
@@ -290,10 +524,15 @@ export default function Deals() {
                         lineItemApprovalMutation.isPending &&
                         lineItemApprovalMutation.variables?.lineItemId === detail.lineItem.id
                       }
+                      isUndoingDecision={
+                        undoLineItemMutation.isPending &&
+                        undoLineItemMutation.variables === detail.lineItem.id
+                      }
                       customer={deal.customer}
                       discountHistory={deal.discountHistory}
+                      region={region}
                       onPatch={(patch) => handlePatch(detail.lineItem.id, patch)}
-                      onRemove={() => setPendingRemoval(detail)}
+                      onRemove={() => handleSoftRemove(detail)}
                       onAccept={() => handleAccept(detail.lineItem.id)}
                       onPropose={(discountPct, reason) =>
                         handlePropose(detail.lineItem.id, discountPct, reason)
@@ -301,6 +540,7 @@ export default function Deals() {
                       onResolveApproval={(decision) =>
                         handleResolveLineApproval(detail.lineItem.id, decision)
                       }
+                      onUndoDecision={() => handleUndoLineItemDecision(detail.lineItem.id)}
                     />
                   ))}
                   {addLineItemMutation.isPending && (
@@ -340,13 +580,18 @@ export default function Deals() {
                   <div>
                     <p className="label-caps">Total deal value</p>
                     <p className="mt-1.5 text-3xl font-semibold tracking-tight tabular-nums">
-                      {currency(dealValueTotal)}
+                      {formatMoney(animatedDealValueTotal, region)}
                     </p>
+                    {region !== "north_america" && (
+                      <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+                        ≈ {currency(toUsd(dealValueTotal, region))} USD
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="label-caps">Blended discount</p>
                     <p className="mt-1.5 text-3xl font-semibold tracking-tight tabular-nums">
-                      {pct(blended)}
+                      {pct(animatedBlended)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">Weighted across all lines</p>
                   </div>
@@ -354,10 +599,10 @@ export default function Deals() {
 
                 <div className="flex flex-col items-end gap-3">
                   <span
-                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${statusStyles}`}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${dealBadge.cls}`}
                   >
                     <span className="h-2 w-2 rounded-full bg-current" />
-                    {policy.label}
+                    {dealBadge.label}
                   </span>
                   {readOnly && (
                     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -399,7 +644,7 @@ export default function Deals() {
               </div>
 
               <p className="mt-5 max-w-3xl border-t border-border pt-5 text-sm leading-relaxed text-muted-foreground">
-                {policy.note} Term: {deal.deal.termLength}.
+                {policy.note} Term: {TERM_LENGTH_LABEL[deal.deal.termLength]}.
               </p>
 
               {readOnly && !managerActionsEnabled && (
@@ -418,32 +663,6 @@ export default function Deals() {
           </>
         )}
       </main>
-
-      <AlertDialog
-        open={!!pendingRemoval}
-        onOpenChange={(open) => !open && setPendingRemoval(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this line item?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingRemoval?.lineItem.productCategory ?? "This line"}
-              {pendingRemoval ? ` · ${currency(pendingRemoval.lineItem.dealValue)}` : ""} will be
-              removed from the deal, along with its AI recommendation and decision. This can&apos;t be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep line item</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={removeLineItemMutation.isPending}
-              onClick={() => pendingRemoval && handleRemove(pendingRemoval.lineItem.id)}
-            >
-              Remove line item
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

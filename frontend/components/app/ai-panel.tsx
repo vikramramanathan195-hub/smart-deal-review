@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { currency, pct } from "@/lib/deal-data";
+import { formatMoney, pct } from "@/lib/deal-data";
 import type {
   Confidence,
   Customer,
@@ -13,6 +13,7 @@ import type {
   DiscountRecommendation,
   Factor,
   LineItem,
+  Region,
 } from "@/lib/api-types";
 
 // A proposal within this many points of the AI's recommendation auto-applies;
@@ -24,7 +25,7 @@ function ConfidenceBadge({ level }: { level: Confidence }) {
   const map = {
     high: { cls: "bg-success-soft text-success", dot: "bg-success", text: "High confidence" },
     medium: {
-      cls: "bg-warning-soft text-warning-foreground",
+      cls: "bg-warning-soft text-warning",
       dot: "bg-warning",
       text: "Medium confidence",
     },
@@ -42,7 +43,7 @@ function ConfidenceBadge({ level }: { level: Confidence }) {
 
 function PendingBadge() {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning-foreground">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">
       <Clock className="h-3 w-3" />
       Pending manager approval
     </span>
@@ -195,7 +196,7 @@ function PanelShell({ children }: { children: React.ReactNode }) {
         <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-ai text-ai-foreground">
           <Sparkles className="h-3.5 w-3.5" />
         </span>
-        <h4 className="text-sm font-semibold text-foreground">AI Discount Recommendation</h4>
+        <h3 className="text-sm font-semibold text-foreground">AI Discount Recommendation</h3>
       </div>
       {children}
     </div>
@@ -207,23 +208,29 @@ export function AiPanel({
   recommendation,
   customer,
   discountHistory,
+  region,
   readOnly,
   isDeciding,
   isResolvingApproval,
+  isUndoingDecision,
   onPropose,
   onAccept,
   onResolveApproval,
+  onUndoDecision,
 }: {
   lineItem: LineItem;
   recommendation: DiscountRecommendation;
   customer: Customer;
   discountHistory: DiscountHistoryEntry[];
+  region: Region;
   readOnly: boolean;
   isDeciding: boolean;
   isResolvingApproval: boolean;
+  isUndoingDecision: boolean;
   onPropose: (discountPct: number, reason: string) => Promise<void>;
   onAccept: () => Promise<void>;
   onResolveApproval: (decision: "approved" | "rejected") => Promise<void>;
+  onUndoDecision: () => Promise<void>;
 }) {
   const isPending = lineItem.lineApprovalState === "pending_approval";
   const applied = lineItem.appliedDiscountPct ?? recommendation.recommendedPct;
@@ -320,14 +327,15 @@ export function AiPanel({
           </p>
           <p className="mt-2 text-[13px] tabular-nums text-muted-foreground">
             Net:{" "}
-            {currency(
+            {formatMoney(
               isPending && pendingNetValue !== null
                 ? pendingNetValue
                 : decided
                   ? appliedNetValue
                   : recommendation.netValue,
+              region,
             )}{" "}
-            on {currency(lineItem.dealValue)}
+            on {formatMoney(lineItem.dealValue, region)}
           </p>
           {/* Exactly one status badge: pending, or the AI's own confidence in
               its recommendation. Always the model's confidence — never
@@ -530,21 +538,31 @@ export function AiPanel({
                 justSaved ? "bg-success-soft" : "bg-transparent"
               }`}
             >
-              <p className="flex items-center gap-1.5 text-xs font-medium text-ai">
-                {justSaved && <Check className="h-3.5 w-3.5 text-success" />}
-                <span>
-                  Applied {pct(applied)} · {lineItem.decision}
-                  {lineItem.decision === "overridden" && lineItem.overrideReason
-                    ? ` — ${lineItem.overrideReason}`
-                    : ""}
-                </span>
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="flex items-center gap-1.5 text-xs font-medium text-ai">
+                  {justSaved && <Check className="h-3.5 w-3.5 text-success" />}
+                  <span>
+                    Applied {pct(applied)} · {lineItem.decision}
+                    {lineItem.decision === "overridden" && lineItem.overrideReason
+                      ? ` — ${lineItem.overrideReason}`
+                      : ""}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  disabled={isUndoingDecision}
+                  onClick={() => void onUndoDecision().catch(() => {})}
+                  className="shrink-0 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isUndoingDecision ? "Undoing…" : "Undo"}
+                </button>
+              </div>
               {justSaved && <p className="mt-1 text-xs font-semibold text-success">Saved</p>}
             </div>
           )}
           {isPending && (
             <div className="mt-3 rounded-lg border border-warning/40 bg-warning-soft p-2.5">
-              <p className="flex items-center gap-1.5 text-xs leading-relaxed text-warning-foreground">
+              <p className="flex items-center gap-1.5 text-xs leading-relaxed text-warning">
                 <Clock className="h-3.5 w-3.5 shrink-0" />
                 <span>
                   Proposed {pct(lineItem.pendingDiscountPct ?? 0)} · pending manager approval —
@@ -552,9 +570,19 @@ export function AiPanel({
                 </span>
               </p>
               {lineItem.decidedBy && (
-                <p className="mt-1 text-xs text-warning-foreground/80">
+                <p className="mt-1 text-xs text-warning/80">
                   Proposed by <span className="font-semibold">{lineItem.decidedBy}</span>
                 </p>
+              )}
+              {!readOnly && (
+                <button
+                  type="button"
+                  disabled={isUndoingDecision}
+                  onClick={() => void onUndoDecision().catch(() => {})}
+                  className="mt-1.5 text-xs font-medium text-warning underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isUndoingDecision ? "Retracting…" : "Retract proposal"}
+                </button>
               )}
             </div>
           )}
@@ -563,7 +591,7 @@ export function AiPanel({
 
         {/* Column 2 */}
         <PanelCard>
-          <h5 className="text-sm font-semibold">Why this number</h5>
+          <h4 className="text-sm font-semibold">Why this number</h4>
           <p className="mt-1 text-xs text-muted-foreground">
             Each factor below adjusts the baseline discount.
           </p>
@@ -583,7 +611,7 @@ export function AiPanel({
 
         {/* Column 3 — deal-level customer context, shared across every line item */}
         <PanelCard>
-          <h5 className="text-sm font-semibold">Customer context</h5>
+          <h4 className="text-sm font-semibold">Customer context</h4>
           <p className="mt-1 text-xs text-muted-foreground">
             {customer.name} · Partner since {customer.partnerSince}
           </p>
@@ -621,7 +649,7 @@ export function AiPanel({
               <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-warning text-[10px] font-bold text-primary-foreground">
                 !
               </span>
-              <p className="text-xs leading-relaxed text-warning-foreground">{callout}</p>
+              <p className="text-xs leading-relaxed text-warning">{callout}</p>
             </div>
           )}
         </PanelCard>
