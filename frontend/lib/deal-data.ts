@@ -71,6 +71,9 @@ export function effectiveDiscount(
 
 export type PolicyStatus = "within" | "exceeds";
 
+// Mirrors APPROVAL_THRESHOLD_PCT in backend/app/routers/deals.py.
+export const POLICY_CEILING_PCT = 15;
+
 /** Read of the blended discount for the summary banner. Matches the
  * backend's own two-band `status` field exactly (within_range /
  * needs_approval) at the 15% approval threshold — there is no separate
@@ -82,7 +85,7 @@ export function policyStatus(blended: number): {
   label: string;
   note: string;
 } {
-  if (blended <= 15)
+  if (blended <= POLICY_CEILING_PCT)
     return {
       status: "within",
       label: "Within Range",

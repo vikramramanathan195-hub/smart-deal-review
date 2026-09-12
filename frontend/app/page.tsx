@@ -31,6 +31,7 @@ import { regionInfo, toUsd } from "@/lib/fx-rates";
 import { ApiError } from "@/lib/api";
 import { useCountUp } from "@/lib/use-count-up";
 import { NewDealDialog } from "@/components/app/new-deal-dialog";
+import { PolicyGauge } from "@/components/app/policy-gauge";
 import type { DealSummary } from "@/lib/api-types";
 
 type SortKey = "name" | "value" | "discount";
@@ -338,9 +339,10 @@ function DealCard({ deal }: { deal: DealSummary }) {
             </p>
           )}
         </div>
-        <div>
+        <div className="min-w-[160px]">
           <p className="label-caps">Blended discount</p>
           <p className="mt-1 text-xl font-semibold tabular-nums">{pct(deal.blendedDiscountPct)}</p>
+          <PolicyGauge value={deal.blendedDiscountPct} size="sm" className="mt-2 max-w-[160px]" />
         </div>
       </div>
 

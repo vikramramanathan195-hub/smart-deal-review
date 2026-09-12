@@ -11,6 +11,7 @@ import { AccountMenu } from "@/components/app/account-menu";
 import { LineItemCard } from "@/components/app/line-item-card";
 import { CategoryMultiSelect } from "@/components/app/category-multiselect";
 import { SaveStateIndicator, type SaveState } from "@/components/app/save-state";
+import { PolicyGauge } from "@/components/app/policy-gauge";
 import { AiPanelSkeleton } from "@/components/app/ai-panel";
 import { useSession } from "@/lib/session";
 import {
@@ -18,6 +19,7 @@ import {
   formatMoney,
   pct,
   policyStatus,
+  POLICY_CEILING_PCT,
   PRODUCT_CATEGORIES,
   TERM_LENGTH_LABEL,
   TERM_LENGTHS,
@@ -130,6 +132,22 @@ function DealsContent() {
   const animatedDealValueTotal = useCountUp(rawDealValueTotal);
   const animatedBlended = useCountUp(dealQuery.data?.blendedDiscountPct ?? 0);
 
+  // The full summary card sits below every line item, so while a rep is
+  // editing up top the policy read is off-screen. A compact sticky version
+  // shows only while the real card is scrolled out of view — never both.
+  const summaryRef = useRef<HTMLElement | null>(null);
+  const [summaryInView, setSummaryInView] = useState(true);
+  useEffect(() => {
+    const el = summaryRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setSummaryInView(entry?.isIntersecting ?? true),
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [currentDealId, dealQuery.data]);
+
   if (!isSignedIn) {
     return <CenteredMessage>Redirecting to sign in…</CenteredMessage>;
   }
@@ -161,7 +179,7 @@ function DealsContent() {
         : approvalState === "rejected"
           ? { label: "Changes Requested", cls: "bg-warning-soft text-warning" }
           : { label: "Exceeds Policy", cls: "bg-danger-soft text-danger" };
-  const managerActionsEnabled = blended > 15;
+  const managerActionsEnabled = blended > POLICY_CEILING_PCT;
   const dealValueTotal = rawDealValueTotal;
 
   const handleAddLineItem = () => {
@@ -337,8 +355,42 @@ function DealsContent() {
     );
   };
 
+  const managerActions =
+    readOnly && deal ? (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          disabled={
+            !managerActionsEnabled || deal.deal.approvalState !== null || approvalMutation.isPending
+          }
+          onClick={() => handleApproval("approved")}
+        >
+          {deal.deal.approvalState === "approved" ? "Deal Approved" : "Approve Deal"}
+        </Button>
+        <Button
+          variant="outline"
+          disabled={
+            !managerActionsEnabled || deal.deal.approvalState !== null || approvalMutation.isPending
+          }
+          onClick={() => handleApproval("rejected")}
+        >
+          {deal.deal.approvalState === "rejected" ? "Changes Requested" : "Request Changes"}
+        </Button>
+        {deal.deal.approvalState !== null && (
+          <Button
+            variant="ghost"
+            disabled={undoApprovalMutation.isPending}
+            onClick={handleUndoApproval}
+          >
+            Undo decision
+          </Button>
+        )}
+      </div>
+    ) : null;
+
+  const showStickySummary = !!deal && lineItems.length > 0 && !summaryInView;
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-28">
       <TopNav right={<AccountMenu />} />
 
       <main className="mx-auto max-w-[1400px] space-y-6 px-6 py-8">
@@ -574,7 +626,7 @@ function DealsContent() {
             </section>
 
             {/* Deal summary */}
-            <section className="surface-card p-6">
+            <section ref={summaryRef} className="surface-card p-6">
               <div className="flex flex-wrap items-start justify-between gap-6">
                 <div className="flex flex-wrap gap-10">
                   <div>
@@ -588,12 +640,13 @@ function DealsContent() {
                       </p>
                     )}
                   </div>
-                  <div>
+                  <div className="min-w-[280px] flex-1">
                     <p className="label-caps">Blended discount</p>
                     <p className="mt-1.5 text-3xl font-semibold tracking-tight tabular-nums">
                       {pct(animatedBlended)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">Weighted across all lines</p>
+                    <PolicyGauge value={blended} className="mt-3 max-w-md" />
                   </div>
                 </div>
 
@@ -604,42 +657,7 @@ function DealsContent() {
                     <span className="h-2 w-2 rounded-full bg-current" />
                     {dealBadge.label}
                   </span>
-                  {readOnly && (
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <Button
-                        disabled={
-                          !managerActionsEnabled ||
-                          deal.deal.approvalState !== null ||
-                          approvalMutation.isPending
-                        }
-                        onClick={() => handleApproval("approved")}
-                      >
-                        {deal.deal.approvalState === "approved" ? "Deal Approved" : "Approve Deal"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        disabled={
-                          !managerActionsEnabled ||
-                          deal.deal.approvalState !== null ||
-                          approvalMutation.isPending
-                        }
-                        onClick={() => handleApproval("rejected")}
-                      >
-                        {deal.deal.approvalState === "rejected"
-                          ? "Changes Requested"
-                          : "Request Changes"}
-                      </Button>
-                      {deal.deal.approvalState !== null && (
-                        <Button
-                          variant="ghost"
-                          disabled={undoApprovalMutation.isPending}
-                          onClick={handleUndoApproval}
-                        >
-                          Undo decision
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  {managerActions}
                 </div>
               </div>
 
@@ -663,6 +681,42 @@ function DealsContent() {
           </>
         )}
       </main>
+
+      {showStickySummary && deal && (
+        <aside
+          aria-label="Deal policy summary"
+          className="fixed inset-x-0 bottom-0 z-30 animate-in fade-in slide-in-from-bottom-2 px-6 pb-4 duration-300"
+        >
+          <div className="surface-card mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-x-8 gap-y-3 border-border/80 bg-card/95 px-5 py-3.5 shadow-lift backdrop-blur">
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+              <div className="shrink-0">
+                <p className="label-caps">Total deal value</p>
+                <p className="text-lg font-semibold tabular-nums leading-tight">
+                  {formatMoney(animatedDealValueTotal, region)}
+                </p>
+              </div>
+              <div className="w-72 shrink-0">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="label-caps">Blended discount</p>
+                  <p className="text-lg font-semibold tabular-nums leading-tight">
+                    {pct(animatedBlended)}
+                  </p>
+                </div>
+                <PolicyGauge value={blended} size="sm" showHeadroom={false} className="mt-1.5" />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold ${dealBadge.cls}`}
+              >
+                <span className="h-2 w-2 rounded-full bg-current" />
+                {dealBadge.label}
+              </span>
+              {managerActions}
+            </div>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }
