@@ -181,7 +181,7 @@ export default function Home() {
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search deals or customers…"
                   aria-label="Search deals by name or customer"
-                  className="h-8 w-56 pl-8 pr-7 text-sm"
+                  className="h-8 w-64 pl-8 pr-7 text-sm sm:w-72"
                 />
                 {query && (
                   <button
