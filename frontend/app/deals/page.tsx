@@ -156,7 +156,7 @@ function DealsContent() {
   }
   if (dealsQuery.isError) {
     return (
-      <CenteredMessage>Couldn&apos;t load deals — {errorMessage(dealsQuery.error)}</CenteredMessage>
+      <CenteredMessage>Couldn&apos;t load deals: {errorMessage(dealsQuery.error)}</CenteredMessage>
     );
   }
 
@@ -181,6 +181,23 @@ function DealsContent() {
           : { label: "Exceeds Policy", cls: "bg-danger-soft text-danger" };
   const managerActionsEnabled = blended > POLICY_CEILING_PCT;
   const dealValueTotal = rawDealValueTotal;
+
+  // Same weighting as the backend's blended_discount_pct, with one line
+  // swapped for a hypothetical value, so a proposal can preview its effect
+  // on the whole deal before it is submitted.
+  const blendedIfLineAt = (lineItemId: string, pctValue: number) => {
+    let total = 0;
+    let weighted = 0;
+    for (const li of lineItems) {
+      const effective =
+        li.lineItem.id === lineItemId
+          ? pctValue
+          : (li.lineItem.appliedDiscountPct ?? li.recommendation.recommendedPct);
+      total += li.lineItem.dealValue;
+      weighted += li.lineItem.dealValue * effective;
+    }
+    return total === 0 ? 0 : Math.round((weighted / total) * 10) / 10;
+  };
 
   const handleAddLineItem = () => {
     const body = nextLineItemDefaults(lineItems.length);
@@ -256,7 +273,7 @@ function DealsContent() {
       if (result.lineItem.lineApprovalState === "pending_approval") {
         toast.info(`Proposal sent for manager approval at ${discountPct}%`);
       } else {
-        toast.success(`Applied ${discountPct}% — within the auto-approve range`);
+        toast.success(`Applied ${discountPct}%, within the auto-approve range`);
       }
     } catch (error) {
       toast.error("Couldn't submit your proposal", { description: errorMessage(error) });
@@ -439,7 +456,7 @@ function DealsContent() {
             <p className="text-sm text-muted-foreground">Loading deal…</p>
           ) : dealQuery.isError ? (
             <p className="text-sm font-medium text-danger">
-              Couldn&apos;t load this deal — {errorMessage(dealQuery.error)}
+              Couldn&apos;t load this deal: {errorMessage(dealQuery.error)}
             </p>
           ) : deal ? (
             <div className="grid gap-6 lg:grid-cols-4">
@@ -488,8 +505,7 @@ function DealsContent() {
                   />
                 </div>
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  Deal-level tags for search and reporting — each line item below has its own
-                  category driving its AI recommendation.
+                  Tags for search and reporting. Each line item sets its own category below.
                 </p>
               </div>
               <div>
@@ -515,7 +531,7 @@ function DealsContent() {
                 </div>
                 {lineItems.length > 0 && (
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    Line item values are not being converted — enter values in the new currency.
+                    Line item values aren&apos;t converted automatically. Enter values in the new currency.
                   </p>
                 )}
                 <p className="mt-1.5 text-xs text-muted-foreground">
@@ -544,7 +560,7 @@ function DealsContent() {
                     <PackageOpen className="h-5 w-5" />
                   </span>
                   <p className="mt-4 text-sm font-semibold">
-                    No line items yet — add one to get started
+                    No line items yet. Add one to get started.
                   </p>
                   <p className="mt-1 max-w-sm text-xs text-muted-foreground">
                     Each line gets its own AI discount recommendation, reasoning, and customer
@@ -593,6 +609,7 @@ function DealsContent() {
                         handleResolveLineApproval(detail.lineItem.id, decision)
                       }
                       onUndoDecision={() => handleUndoLineItemDecision(detail.lineItem.id)}
+                      previewBlended={(p) => blendedIfLineAt(detail.lineItem.id, p)}
                     />
                   ))}
                   {addLineItemMutation.isPending && (
@@ -673,8 +690,8 @@ function DealsContent() {
               {deal.deal.approvalState !== null && (
                 <p className="mt-3 text-sm font-semibold text-ai">
                   {deal.deal.approvalState === "approved"
-                    ? "Deal approved — the rep has been notified."
-                    : "Changes requested — sent back to the rep."}
+                    ? "Deal approved. The rep has been notified."
+                    : "Changes requested. Sent back to the rep."}
                 </p>
               )}
             </section>
@@ -689,13 +706,13 @@ function DealsContent() {
         >
           <div className="surface-card mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-x-8 gap-y-3 border-border/80 bg-card/95 px-5 py-3.5 shadow-lift backdrop-blur">
             <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
-              <div className="shrink-0">
+              <div className="hidden shrink-0 sm:block">
                 <p className="label-caps">Total deal value</p>
                 <p className="text-lg font-semibold tabular-nums leading-tight">
                   {formatMoney(animatedDealValueTotal, region)}
                 </p>
               </div>
-              <div className="w-72 shrink-0">
+              <div className="w-full shrink-0 sm:w-72">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="label-caps">Blended discount</p>
                   <p className="text-lg font-semibold tabular-nums leading-tight">

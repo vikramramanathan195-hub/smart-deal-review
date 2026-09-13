@@ -51,6 +51,7 @@ export function LineItemCard({
   onAccept,
   onResolveApproval,
   onUndoDecision,
+  previewBlended,
 }: {
   detail: LineItemDetail;
   index: number;
@@ -68,6 +69,7 @@ export function LineItemCard({
   onAccept: () => Promise<void>;
   onResolveApproval: (decision: "approved" | "rejected") => Promise<void>;
   onUndoDecision: () => Promise<void>;
+  previewBlended: (pct: number) => number;
 }) {
   const { lineItem, recommendation } = detail;
   // While a proposal on this line awaits a manager's call, category/value are
@@ -278,6 +280,7 @@ export function LineItemCard({
               onAccept={onAccept}
               onResolveApproval={onResolveApproval}
               onUndoDecision={onUndoDecision}
+              previewBlended={previewBlended}
             />
           </div>
         )}

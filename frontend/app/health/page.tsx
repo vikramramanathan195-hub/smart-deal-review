@@ -146,7 +146,7 @@ export default function Health() {
 
         <div className="surface-card p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold">Request Volume — Last Hour</h2>
+            <h2 className="text-sm font-semibold">Request Volume · Last Hour</h2>
             <p className="text-xs text-muted-foreground tabular-nums">
               Peak 5,605 req/5min · 52,805 total
             </p>
@@ -236,7 +236,7 @@ export default function Health() {
                   />
                   <p className="text-[13px] leading-relaxed text-foreground">
                     <span className="tabular-nums text-muted-foreground">{ev.time}</span>
-                    <span className="text-muted-foreground"> — </span>
+                    <span className="text-muted-foreground"> · </span>
                     {ev.text}
                   </p>
                 </div>

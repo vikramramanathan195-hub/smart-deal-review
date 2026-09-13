@@ -47,7 +47,7 @@ const VALUE_PROPS = [
   {
     icon: ListChecks,
     title: "Reasoning you can inspect",
-    body: "Every recommendation breaks down factor by factor — baseline, tenure, deal size, competitive pressure.",
+    body: "Every recommendation breaks down into factors like baseline, tenure, deal size, and competitive pressure.",
   },
   {
     icon: ShieldCheck,
@@ -104,7 +104,7 @@ export default function SignIn() {
             Price every line item with confidence.
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-primary-foreground/75">
-            AI-recommended discounts with the reasoning behind them — checked against policy
+            AI-recommended discounts with the reasoning behind them, checked against policy
             before the deal goes out.
           </p>
 
@@ -133,7 +133,7 @@ export default function SignIn() {
               <PolicyGauge value={12.5} showHeadroom={false} />
             </div>
             <p className="mt-2 text-xs text-primary-foreground/70">
-              2.5 pts of headroom — closes without approval.
+              2.5 pts of headroom. Closes without approval.
             </p>
           </div>
         </div>
@@ -187,8 +187,8 @@ export default function SignIn() {
           </div>
 
           <p className="mt-6 text-xs text-muted-foreground">
-            Demo accounts — no password needed. You can switch roles at any time from the account
-            menu.
+            No password needed for these demo accounts. You can switch roles at any time from the
+            account menu.
           </p>
         </div>
       </section>

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatMoney, pct } from "@/lib/deal-data";
+import { formatMoney, pct, POLICY_CEILING_PCT } from "@/lib/deal-data";
 import type {
   Confidence,
   Customer,
@@ -41,6 +41,37 @@ function ConfidenceBadge({ level }: { level: Confidence }) {
   );
 }
 
+/** What each confidence level should mean for the rep's next move. Kept
+ * about the model's precedent rather than this customer's numbers, since the
+ * seeded confidence is per line and a data-derived claim could contradict it. */
+const CONFIDENCE_NOTE: Record<Confidence, string> = {
+  high: "Strong precedent for this deal profile. Safe to accept as-is.",
+  medium:
+    "Some precedent, but this could reasonably land a point or two either way. Worth a glance at the factors.",
+  low: "Little precedent for this profile. Treat it as a starting point and check the factors before accepting.",
+};
+
+/** One-line read of the win/loss history so the list below it has a takeaway. */
+function historyInsight(entries: DiscountHistoryEntry[]): string | null {
+  if (entries.length === 0) return null;
+  const wins = entries.filter((h) => h.outcome === "won").map((h) => h.discountPct);
+  const losses = entries.filter((h) => h.outcome === "lost").map((h) => h.discountPct);
+  const parts: string[] = [];
+  if (wins.length > 0) {
+    const lo = Math.min(...wins);
+    const hi = Math.max(...wins);
+    const range = lo === hi ? `at ${lo.toFixed(1)}%` : `between ${lo.toFixed(1)}% and ${hi.toFixed(1)}%`;
+    parts.push(`Won ${wins.length} of ${entries.length} past deals ${range}.`);
+  } else {
+    parts.push(`Lost all ${entries.length} past deals.`);
+  }
+  if (wins.length > 0 && losses.length > 0) {
+    const times = losses.length === 1 ? "once" : `${losses.length} times`;
+    parts.push(`Lost ${times} at ${losses.map((l) => `${l.toFixed(1)}%`).join(", ")}.`);
+  }
+  return parts.join(" ");
+}
+
 function PendingBadge() {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">
@@ -66,7 +97,7 @@ function appliedConfidence(
     return { level, note: "Matches the AI recommendation exactly." };
   }
   const direction = deviation > 0 ? "above" : "below";
-  const suffix = level === "low" ? " — well outside the model's typical range for this line." : ".";
+  const suffix = level === "low" ? " (well outside the model's typical range for this line)." : ".";
   return {
     level,
     note: `${absDeviation.toFixed(1)} pts ${direction} the AI recommendation${suffix}`,
@@ -149,7 +180,7 @@ function FactorRow({ factor, max }: { factor: Factor; max: number }) {
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className={`h-full rounded-full ${negative ? "bg-danger" : "bg-ai"}`}
+          className={`h-full rounded-full ${negative ? "ml-auto bg-danger" : "bg-ai"}`}
           style={{ width: `${width}%` }}
         />
       </div>
@@ -217,6 +248,7 @@ export function AiPanel({
   onAccept,
   onResolveApproval,
   onUndoDecision,
+  previewBlended,
 }: {
   lineItem: LineItem;
   recommendation: DiscountRecommendation;
@@ -231,6 +263,9 @@ export function AiPanel({
   onAccept: () => Promise<void>;
   onResolveApproval: (decision: "approved" | "rejected") => Promise<void>;
   onUndoDecision: () => Promise<void>;
+  /** Deal-level blended discount if this line were set to the given %, so a
+   * proposal can show its effect on the whole deal before it's submitted. */
+  previewBlended?: (pct: number) => number;
 }) {
   const isPending = lineItem.lineApprovalState === "pending_approval";
   const applied = lineItem.appliedDiscountPct ?? recommendation.recommendedPct;
@@ -293,15 +328,24 @@ export function AiPanel({
     : null;
   // Net for whatever is actually applied — the API's netValue tracks the
   // recommendation, which no longer matches once a rep changes the number.
-  const appliedNetValue = lineItem.dealValue * (1 - applied / 100);
-  const pendingNetValue =
-    lineItem.pendingDiscountPct !== null
-      ? lineItem.dealValue * (1 - lineItem.pendingDiscountPct / 100)
+  const shownPct = isPending
+    ? (lineItem.pendingDiscountPct ?? 0)
+    : decided
+      ? applied
+      : recommendation.recommendedPct;
+  const shownNet = lineItem.dealValue * (1 - shownPct / 100);
+
+  const insight = historyInsight(discountHistory);
+  // No history means avgDiscountPct is a placeholder zero, so "N pts above
+  // average" would be nonsense for a brand-new customer.
+  const callout =
+    discountHistory.length > 0 && recommendation.recommendedPct - customer.avgDiscountPct > 0.5
+      ? `${(recommendation.recommendedPct - customer.avgDiscountPct).toFixed(1)} pts above this customer's ${pct(customer.avgDiscountPct)} average.`
       : null;
 
-  const callout =
-    recommendation.recommendedPct - customer.avgDiscountPct > 0.5
-      ? `${(recommendation.recommendedPct - customer.avgDiscountPct).toFixed(1)} pts above ${customer.name}'s historical average.`
+  const proposalPreview =
+    previewBlended && draftNumber !== null && !discountError
+      ? { current: previewBlended(applied), next: previewBlended(draftNumber) }
       : null;
 
   return (
@@ -326,16 +370,11 @@ export function AiPanel({
             )}
           </p>
           <p className="mt-2 text-[13px] tabular-nums text-muted-foreground">
-            Net:{" "}
-            {formatMoney(
-              isPending && pendingNetValue !== null
-                ? pendingNetValue
-                : decided
-                  ? appliedNetValue
-                  : recommendation.netValue,
-              region,
-            )}{" "}
-            on {formatMoney(lineItem.dealValue, region)}
+            Customer pays {formatMoney(shownNet, region)}
+            <span className="mx-1.5" aria-hidden="true">
+              ·
+            </span>
+            saves {formatMoney(lineItem.dealValue - shownNet, region)}
           </p>
           {/* Exactly one status badge: pending, or the AI's own confidence in
               its recommendation. Always the model's confidence — never
@@ -346,6 +385,11 @@ export function AiPanel({
           <div className="mt-3">
             {isPending ? <PendingBadge /> : <ConfidenceBadge level={recommendation.confidence} />}
           </div>
+          {!isPending && !decided && (
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {CONFIDENCE_NOTE[recommendation.confidence]}
+            </p>
+          )}
           {appliedFeedback && (
             <div className="mt-2 space-y-0.5">
               <p className="text-xs text-muted-foreground">
@@ -358,7 +402,7 @@ export function AiPanel({
           )}
           {isPending && (
             <p className="mt-2 text-xs text-muted-foreground">
-              AI suggested {pct(recommendation.recommendedPct)} — this proposal is{" "}
+              AI suggested {pct(recommendation.recommendedPct)}. This proposal is{" "}
               {Math.abs((lineItem.pendingDiscountPct ?? 0) - recommendation.recommendedPct).toFixed(
                 1,
               )}{" "}
@@ -398,7 +442,7 @@ export function AiPanel({
             <>
               <p className="label-caps">Your decision</p>
               <p className="mt-2 text-[13px] text-muted-foreground">
-                Read-only — reps own line-level decisions.
+                Read-only. Reps own line-level decisions.
               </p>
             </>
           ) : (
@@ -487,15 +531,28 @@ export function AiPanel({
                         <p className="mt-2 text-xs text-muted-foreground">
                           {willAutoApply ? (
                             <>
-                              Within {AUTO_APPROVE_BAND_PCT} pts of the recommendation — applies
+                              Within {AUTO_APPROVE_BAND_PCT} pts of the recommendation, so it applies
                               immediately.
                             </>
                           ) : (
                             <>
-                              More than {AUTO_APPROVE_BAND_PCT} pts from the recommendation — will
+                              More than {AUTO_APPROVE_BAND_PCT} pts from the recommendation, so it will
                               require manager approval.
                             </>
                           )}
+                        </p>
+                      )}
+                      {proposalPreview && (
+                        <p
+                          className={`mt-1.5 text-xs font-medium ${
+                            proposalPreview.next > POLICY_CEILING_PCT ? "text-danger" : "text-success"
+                          }`}
+                        >
+                          Deal blended discount {pct(proposalPreview.current)} →{" "}
+                          {pct(proposalPreview.next)}
+                          {proposalPreview.next > POLICY_CEILING_PCT
+                            ? `, which would put the deal over the ${POLICY_CEILING_PCT}% ceiling.`
+                            : `, still within the ${POLICY_CEILING_PCT}% ceiling.`}
                         </p>
                       )}
 
@@ -544,7 +601,7 @@ export function AiPanel({
                   <span>
                     Applied {pct(applied)} · {lineItem.decision}
                     {lineItem.decision === "overridden" && lineItem.overrideReason
-                      ? ` — ${lineItem.overrideReason}`
+                      ? ` (${lineItem.overrideReason})`
                       : ""}
                   </span>
                 </p>
@@ -565,8 +622,8 @@ export function AiPanel({
               <p className="flex items-center gap-1.5 text-xs leading-relaxed text-warning">
                 <Clock className="h-3.5 w-3.5 shrink-0" />
                 <span>
-                  Proposed {pct(lineItem.pendingDiscountPct ?? 0)} · pending manager approval —
-                  reason: {lineItem.overrideReason}
+                  Proposed {pct(lineItem.pendingDiscountPct ?? 0)} · pending manager approval
+                  (reason: {lineItem.overrideReason})
                 </span>
               </p>
               {lineItem.decidedBy && (
@@ -622,6 +679,11 @@ export function AiPanel({
           </div>
 
           <p className="label-caps mt-5">Discount history</p>
+          {discountHistory.length === 0 && (
+            <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+              No past deals with this customer yet, so there is no history to compare against.
+            </p>
+          )}
           <div className="mt-2.5 space-y-2.5">
             {discountHistory.map((h) => (
               <div key={h.date} className="flex items-center gap-3">
@@ -643,9 +705,14 @@ export function AiPanel({
               </div>
             ))}
           </div>
+          {insight && (
+            <p className="mt-3 rounded-lg bg-secondary/60 px-3 py-2 text-xs font-medium leading-relaxed">
+              {insight}
+            </p>
+          )}
 
           {callout && (
-            <div className="mt-5 flex gap-2.5 rounded-lg bg-warning-soft p-3">
+            <div className="mt-3 flex gap-2.5 rounded-lg bg-warning-soft p-3">
               <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-warning text-[10px] font-bold text-primary-foreground">
                 !
               </span>

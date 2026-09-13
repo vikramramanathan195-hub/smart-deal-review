@@ -95,7 +95,7 @@ export function NewDealDialog() {
         <DialogHeader>
           <DialogTitle>Start a new deal</DialogTitle>
           <DialogDescription>
-            Set up the basics — you&apos;ll add line items and get AI recommendations next.
+            Set up the basics, then add line items and get AI recommendations next.
           </DialogDescription>
         </DialogHeader>
 
