@@ -2,9 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search } from "lucide-react";
+import { Activity, FileText, LayoutGrid, Menu, Search } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const NAV_ITEMS = [
+  { to: "/", label: "Home", icon: LayoutGrid },
+  { to: "/deals", label: "Deal Review", icon: FileText },
+  { to: "/health", label: "System Health", icon: Activity },
+];
 
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
@@ -29,11 +42,45 @@ export function TopNav({ right }: { right?: ReactNode }) {
   }, []);
   return (
     <header
-      className={`sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur transition-shadow duration-200 ${
+      className={`sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur transition-shadow duration-200 print:hidden ${
         scrolled ? "shadow-card" : ""
       }`}
     >
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-6">
+        {/* Below md the links move into a menu so pages stay reachable by touch. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Open navigation"
+              className="pressable inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {NAV_ITEMS.map((item) => (
+              <DropdownMenuItem key={item.to} asChild>
+                <Link
+                  href={item.to}
+                  className={pathname === item.to ? "font-semibold" : undefined}
+                  aria-current={pathname === item.to ? "page" : undefined}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => document.dispatchEvent(new CustomEvent("command-palette:open"))}
+            >
+              <Search className="h-4 w-4" />
+              Search
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
           <LogoMark />
           <span className="whitespace-nowrap text-sm font-semibold tracking-tight">
@@ -41,14 +88,11 @@ export function TopNav({ right }: { right?: ReactNode }) {
           </span>
         </Link>
         <nav className="ml-6 hidden items-center gap-1 md:flex">
-          {[
-            { to: "/", label: "Home" },
-            { to: "/deals", label: "Deal Review" },
-            { to: "/health", label: "System Health" },
-          ].map((item) => (
+          {NAV_ITEMS.map((item) => (
             <Link
               key={item.to}
               href={item.to}
+              aria-current={pathname === item.to ? "page" : undefined}
               className={`pressable rounded-md px-3 py-2 text-sm font-medium hover:bg-muted hover:text-foreground ${
                 pathname === item.to ? "bg-muted text-foreground" : "text-muted-foreground"
               }`}

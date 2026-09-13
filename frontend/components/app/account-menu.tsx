@@ -31,11 +31,9 @@ export function AccountMenu() {
   const router = useRouter();
   const loginMutation = useLoginMutation();
 
-  if (!role || !email) return null;
-
-  const otherRole = OTHER_ROLE[role];
-
   const handleSwitchRole = () => {
+    if (!role) return;
+    const otherRole = OTHER_ROLE[role];
     loginMutation.mutate(
       { email: ROLE_LOGIN_EMAIL[otherRole], role: otherRole },
       {
@@ -54,11 +52,17 @@ export function AccountMenu() {
     );
   };
 
+  // Hooks stay above the early return so the hook count is identical before
+  // and after the stored session hydrates.
   useEffect(() => {
     const onSwitchRequest = () => handleSwitchRole();
     document.addEventListener("role:switch", onSwitchRequest);
     return () => document.removeEventListener("role:switch", onSwitchRequest);
   });
+
+  if (!role || !email) return null;
+
+  const otherRole = OTHER_ROLE[role];
 
   const handleSignOut = () => {
     signOut();

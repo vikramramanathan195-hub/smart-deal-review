@@ -65,6 +65,11 @@ async function request<T>(
     }
     const message =
       typeof data?.detail === "string" ? data.detail : `Request failed (${res.status})`;
+    // An expired or invalid stored token should land on sign-in, not on a
+    // page full of "couldn't load" errors. The session provider listens.
+    if (res.status === 401 && typeof document !== "undefined") {
+      document.dispatchEvent(new CustomEvent("session:unauthorized"));
+    }
     throw new ApiError(res.status, message);
   }
 

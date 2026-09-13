@@ -22,7 +22,6 @@ import {
   CommandItem,
   CommandInput,
   CommandList,
-  CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
 import { useDealsQuery } from "@/lib/queries";
@@ -86,7 +85,6 @@ export function CommandPalette() {
 
         {dealsQuery.data && dealsQuery.data.length > 0 && (
           <>
-            <CommandSeparator />
             <CommandGroup heading="Deals">
               {dealsQuery.data.map((deal) => {
                 const policy = policyStatus(deal.blendedDiscountPct);
@@ -101,8 +99,6 @@ export function CommandPalette() {
             </CommandGroup>
           </>
         )}
-
-        <CommandSeparator />
         <CommandGroup heading="Actions">
           {role === "sales_rep" && (
             <CommandItem onSelect={() => go("/?new=1")}>

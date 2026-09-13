@@ -221,6 +221,13 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  @media print {
+    body {
+      background: white;
+      color: black;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

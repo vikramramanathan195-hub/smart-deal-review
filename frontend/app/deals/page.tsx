@@ -11,9 +11,12 @@ import {
   Pencil,
   Plus,
   PackageOpen,
+  Printer,
   Loader2,
 } from "lucide-react";
 import { Segmented } from "@/components/ui/segmented";
+import { QuoteSheet } from "@/components/app/quote-sheet";
+import { IntroStrip } from "@/components/app/intro-strip";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,7 +97,7 @@ export default function Deals() {
 }
 
 function DealsContent() {
-  const { role, isSignedIn } = useSession();
+  const { role, isSignedIn, ready } = useSession();
   const readOnly = role === "manager";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -107,8 +110,8 @@ function DealsContent() {
   // ever resolve it, so the page would show "Loading deals…" forever
   // instead of sending the user back to sign in.
   useEffect(() => {
-    if (!isSignedIn) router.replace("/sign-in");
-  }, [isSignedIn, router]);
+    if (ready && !isSignedIn) router.replace("/sign-in");
+  }, [ready, isSignedIn, router]);
 
   const dealsQuery = useDealsQuery();
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
@@ -158,6 +161,11 @@ function DealsContent() {
   const animatedDealValueTotal = useCountUp(rawDealValueTotal);
   const animatedBlended = useCountUp(dealQuery.data?.blendedDiscountPct ?? 0);
 
+  const dealName = dealQuery.data?.deal.name;
+  useEffect(() => {
+    document.title = dealName ? `${dealName} · Deal Review` : "Deal Review · Deal Discount Review";
+  }, [dealName]);
+
   // The full summary card sits below every line item, so while a rep is
   // editing up top the policy read is off-screen. A compact sticky version
   // shows only while the real card is scrolled out of view — never both.
@@ -175,7 +183,7 @@ function DealsContent() {
   }, [currentDealId, dealQuery.data]);
 
   if (!isSignedIn) {
-    return <CenteredMessage>Redirecting to sign in…</CenteredMessage>;
+    return <CenteredMessage>{ready ? "Redirecting to sign in…" : "Loading…"}</CenteredMessage>;
   }
   if (dealsQuery.isPending) {
     return <CenteredMessage>Loading deals…</CenteredMessage>;
@@ -231,6 +239,17 @@ function DealsContent() {
       onError: (error) =>
         toast.error("Couldn't add line item", { description: errorMessage(error) }),
     });
+  };
+
+  const handleDuplicate = (detail: LineItemDetail) => {
+    addLineItemMutation.mutate(
+      { productCategory: detail.lineItem.productCategory, dealValue: detail.lineItem.dealValue },
+      {
+        onSuccess: () => toast.success("Line duplicated"),
+        onError: (error) =>
+          toast.error("Couldn't duplicate line item", { description: errorMessage(error) }),
+      },
+    );
   };
 
   const handlePatch = (
@@ -540,7 +559,7 @@ function DealsContent() {
     <div className="min-h-screen pb-28">
       <TopNav right={<AccountMenu />} />
 
-      <main className="mx-auto max-w-[1400px] space-y-6 px-6 py-8">
+      <main className="mx-auto max-w-[1400px] space-y-6 px-6 py-8 print:hidden">
         {/* Deal header */}
         <section className="surface-card p-6">
           <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border pb-6 text-sm">
@@ -717,6 +736,8 @@ function DealsContent() {
 
         {deal && (
           <>
+            {!readOnly && <IntroStrip />}
+
             {/* Line items */}
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -813,6 +834,7 @@ function DealsContent() {
                         handleResolveLineApproval(detail.lineItem.id, decision)
                       }
                       onUndoDecision={() => handleUndoLineItemDecision(detail.lineItem.id)}
+                      onDuplicate={() => handleDuplicate(detail)}
                       previewBlended={(p) => blendedIfLineAt(detail.lineItem.id, p)}
                     />
                   ))}
@@ -879,6 +901,10 @@ function DealsContent() {
                     {dealBadge.label}
                   </span>
                   {managerActions}
+                  <Button variant="ghost" size="sm" onClick={() => window.print()}>
+                    <Printer className="h-4 w-4" />
+                    Print quote
+                  </Button>
                 </div>
               </div>
 
@@ -973,10 +999,14 @@ function DealsContent() {
         )}
       </main>
 
+      {deal && (
+        <QuoteSheet deal={deal} lineItems={lineItems} blended={blended} region={region} />
+      )}
+
       {showStickySummary && deal && (
         <aside
           aria-label="Deal policy summary"
-          className="fixed inset-x-0 bottom-0 z-30 animate-in fade-in slide-in-from-bottom-2 px-6 pb-4 duration-300"
+          className="fixed inset-x-0 bottom-0 z-30 animate-in fade-in slide-in-from-bottom-2 px-6 pb-4 duration-300 print:hidden"
         >
           <div className="surface-card mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-x-8 gap-y-3 border-border/80 bg-card/95 px-6 py-4 shadow-lift backdrop-blur">
             <div className="flex flex-wrap items-center gap-x-8 gap-y-3">

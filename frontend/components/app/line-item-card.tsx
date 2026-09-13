@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, X } from "lucide-react";
+import { Copy, Lock, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +13,7 @@ import {
 import { AiPanel, AiPanelEmpty, AiPanelSkeleton } from "@/components/app/ai-panel";
 import { SaveStateIndicator, type SaveState } from "@/components/app/save-state";
 import { formatMoney, pct, PRODUCT_CATEGORIES } from "@/lib/deal-data";
-import { currencySymbol } from "@/lib/fx-rates";
+import { currencySymbol, regionInfo } from "@/lib/fx-rates";
 import type {
   Customer,
   DiscountHistoryEntry,
@@ -24,14 +24,17 @@ import type {
 
 const EDIT_DEBOUNCE_MS = 600;
 
-/** Adds thousands separators for display; "-" and "" pass through untouched
- * so the field doesn't fight the user mid-edit. */
-function formatDigits(raw: string): string {
+/** Groups digits the way the deal's own currency displays them (220,000 in
+ * the US, 220.000 in the Eurozone, 1,83,000 in India) so the field and the
+ * figures beside it agree. "-" and "" pass through so the field doesn't
+ * fight the user mid-edit. */
+function formatDigits(raw: string, locale: string): string {
   if (raw === "" || raw === "-") return raw;
   const negative = raw.startsWith("-");
   const digits = negative ? raw.slice(1) : raw;
-  const withCommas = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return negative ? `-${withCommas}` : withCommas;
+  if (digits === "") return raw;
+  const grouped = Number(digits).toLocaleString(locale, { maximumFractionDigits: 0 });
+  return negative ? `-${grouped}` : grouped;
 }
 
 export function LineItemCard({
@@ -51,6 +54,7 @@ export function LineItemCard({
   onAccept,
   onResolveApproval,
   onUndoDecision,
+  onDuplicate,
   previewBlended,
 }: {
   detail: LineItemDetail;
@@ -69,6 +73,7 @@ export function LineItemCard({
   onAccept: () => Promise<void>;
   onResolveApproval: (decision: "approved" | "rejected") => Promise<void>;
   onUndoDecision: () => Promise<void>;
+  onDuplicate: () => void;
   previewBlended: (pct: number) => number;
 }) {
   const { lineItem, recommendation } = detail;
@@ -143,7 +148,7 @@ export function LineItemCard({
 
     const cleaned = input.value.replace(/[^0-9-]/g, "");
     const normalized = cleaned.startsWith("-") ? `-${cleaned.slice(1).replace(/-/g, "")}` : cleaned;
-    const formatted = formatDigits(normalized);
+    const formatted = formatDigits(normalized, locale);
 
     let count = 0;
     let newCursor = formatted.length;
@@ -166,6 +171,7 @@ export function LineItemCard({
   };
 
   const fieldsReadOnly = readOnly || isLocked;
+  const locale = regionInfo(region).locale;
 
   // Decision state in the header so a deal can be scanned line by line
   // without opening each AI panel to find out what has been settled.
@@ -251,7 +257,7 @@ export function LineItemCard({
                   className="pl-8 tabular-nums"
                   inputMode="numeric"
                   aria-invalid={!!valueError}
-                  value={formatDigits(valueDraft)}
+                  value={formatDigits(valueDraft, locale)}
                   onChange={handleValueChange}
                   onKeyDown={(e) => {
                     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
@@ -278,6 +284,17 @@ export function LineItemCard({
           {lineStatus.label}
         </span>
 
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={onDuplicate}
+            aria-label={`Duplicate line item ${index + 1}`}
+            title="Duplicate line"
+            className="mt-6 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground pressable hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Copy className="h-4 w-4" />
+          </button>
+        )}
         {!readOnly && (
           <button
             type="button"
