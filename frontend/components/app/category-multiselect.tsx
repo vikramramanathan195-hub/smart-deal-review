@@ -30,11 +30,11 @@ export function CategoryMultiSelect({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         {value.map((category) => (
           <span
             key={category}
-            className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground"
+            className="inline-flex items-center gap-1 rounded-sm bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground"
           >
             {category}
             {!disabled && (
@@ -43,7 +43,7 @@ export function CategoryMultiSelect({
                 onClick={() => toggle(category)}
                 disabled={value.length === 1}
                 aria-label={`Remove ${category}`}
-                className="rounded-full text-accent-foreground/70 transition-colors hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="pressable rounded-sm text-secondary-foreground/70 hover:text-secondary-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -57,14 +57,14 @@ export function CategoryMultiSelect({
               <button
                 type="button"
                 aria-label="Edit product categories"
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-input px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-ai hover:text-ai focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="pressable inline-flex items-center gap-1 rounded-sm border border-dashed border-input px-2 py-1 text-xs font-medium text-muted-foreground pressable hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Edit
                 <ChevronsUpDown className="h-3 w-3" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-56">
-              <ul role="listbox" aria-multiselectable="true" className="flex flex-col gap-0.5">
+              <ul role="listbox" aria-multiselectable="true" className="flex flex-col gap-1">
                 {PRODUCT_CATEGORIES.map((category) => {
                   const selected = value.includes(category);
                   return (
@@ -75,14 +75,14 @@ export function CategoryMultiSelect({
                         aria-selected={selected}
                         onClick={() => toggle(category)}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+                          "flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm pressable hover:bg-accent hover:text-accent-foreground",
                           selected && "font-medium",
                         )}
                       >
                         <span
                           className={cn(
                             "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-input",
-                            selected && "border-ai bg-ai text-ai-foreground",
+                            selected && "border-primary bg-primary text-primary-foreground",
                           )}
                         >
                           {selected && <Check className="h-3 w-3" />}

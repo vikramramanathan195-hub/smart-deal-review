@@ -170,12 +170,12 @@ export function LineItemCard({
   return (
     <section className="surface-card animate-in fade-in slide-in-from-top-2 overflow-hidden duration-300 transition-shadow hover:shadow-card-hover">
       {isLocked && (
-        <div className="flex items-center gap-1.5 border-b border-warning/30 bg-warning-soft px-5 py-1.5 text-xs font-medium text-warning">
+        <div className="flex items-center gap-2 border-b border-warning/30 bg-warning-soft px-6 py-2 text-xs font-medium text-warning">
           <Lock className="h-3 w-3" />
           Locked while a proposal on this line awaits manager approval
         </div>
       )}
-      <div className="p-5">
+      <div className="p-6">
         {!fieldsReadOnly && (
           <div className="mb-2 flex h-4 justify-end">
             <SaveStateIndicator state={saveState} />
@@ -190,7 +190,7 @@ export function LineItemCard({
           <label className="label-caps" htmlFor={`category-${lineItem.id}`}>
             Product category
           </label>
-          <div className="mt-1.5">
+          <div className="mt-2">
             {fieldsReadOnly ? (
               <p className="py-2 text-sm font-medium">{lineItem.productCategory}</p>
             ) : (
@@ -217,7 +217,7 @@ export function LineItemCard({
           <label className="label-caps" htmlFor={`value-${lineItem.id}`}>
             Deal value
           </label>
-          <div className="mt-1.5">
+          <div className="mt-2">
             {fieldsReadOnly ? (
               <p className="py-2 text-sm font-medium tabular-nums">
                 {formatMoney(lineItem.dealValue, region)}
@@ -229,7 +229,7 @@ export function LineItemCard({
                 </span>
                 <Input
                   id={`value-${lineItem.id}`}
-                  className="pl-7 tabular-nums"
+                  className="pl-8 tabular-nums"
                   inputMode="numeric"
                   aria-invalid={!!valueError}
                   value={formatDigits(valueDraft)}
@@ -240,7 +240,7 @@ export function LineItemCard({
             )}
           </div>
           {!fieldsReadOnly && valueError && (
-            <p className="mt-1.5 text-xs font-medium text-danger">{valueError}</p>
+            <p className="mt-2 text-xs font-medium text-danger">{valueError}</p>
           )}
         </div>
 
@@ -251,7 +251,7 @@ export function LineItemCard({
             disabled={isLocked}
             aria-label={`Remove line item ${index + 1}`}
             title={isLocked ? "Locked while a proposal awaits manager approval" : undefined}
-            className="mt-6 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+            className="mt-6 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground pressable hover:bg-danger-soft hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -259,7 +259,7 @@ export function LineItemCard({
         </div>
       </div>
 
-      <div className="px-5 pb-5">
+      <div className="px-6 pb-6">
         {isGenerating ? (
           <AiPanelSkeleton />
         ) : valueError ? (

@@ -59,7 +59,7 @@ export function AccountMenu() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-muted"
+          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground pressable hover:bg-muted"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-ai" />
           {ROLE_LABEL[role]}
@@ -68,10 +68,10 @@ export function AccountMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel className="font-normal">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="label-caps">
             Signed in as
           </p>
-          <p className="mt-0.5 truncate text-sm font-medium text-foreground">{email}</p>
+          <p className="mt-1 truncate text-sm font-medium text-foreground">{email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSwitchRole} disabled={loginMutation.isPending}>

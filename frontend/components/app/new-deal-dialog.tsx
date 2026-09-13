@@ -106,7 +106,7 @@ export function NewDealDialog() {
             </label>
             <Input
               id="new-deal-name"
-              className="mt-1.5"
+              className="mt-2"
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -123,7 +123,7 @@ export function NewDealDialog() {
             </label>
             <Input
               id="new-deal-customer"
-              className="mt-1.5"
+              className="mt-2"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="e.g. Acme Corp"
@@ -138,7 +138,7 @@ export function NewDealDialog() {
               <label className="label-caps" htmlFor="new-deal-term">
                 Term length
               </label>
-              <div className="mt-1.5">
+              <div className="mt-2">
                 <Select value={termLength} onValueChange={(v) => setTermLength(v as TermLength)}>
                   <SelectTrigger id="new-deal-term">
                     <SelectValue />
@@ -158,7 +158,7 @@ export function NewDealDialog() {
               <label className="label-caps" htmlFor="new-deal-region">
                 Region
               </label>
-              <div className="mt-1.5">
+              <div className="mt-2">
                 <Select value={region} onValueChange={(v) => setRegion(v as Region)}>
                   <SelectTrigger id="new-deal-region">
                     <SelectValue />
@@ -177,7 +177,7 @@ export function NewDealDialog() {
 
           <div>
             <span className="label-caps">Product categories</span>
-            <div className="mt-1.5">
+            <div className="mt-2">
               <CategoryMultiSelect value={categories} onChange={setCategories} />
             </div>
           </div>

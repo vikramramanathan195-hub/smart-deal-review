@@ -413,10 +413,10 @@ function DealsContent() {
       <main className="mx-auto max-w-[1400px] space-y-6 px-6 py-8">
         {/* Deal header */}
         <section className="surface-card p-6">
-          <div className="mb-6 flex flex-wrap items-center gap-1.5 border-b border-border pb-6 text-sm">
+          <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border pb-6 text-sm">
             <Link
               href="/"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex items-center gap-2 pressable rounded-md px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               All deals
@@ -427,7 +427,7 @@ function DealsContent() {
             <Select value={currentDealId} onValueChange={setSelectedDealId}>
               <SelectTrigger
                 aria-label="Switch deal"
-                className="h-8 w-auto min-w-[220px] max-w-[420px] gap-1.5 border-none bg-transparent px-2 font-semibold shadow-none hover:bg-muted"
+                className="h-8 w-auto min-w-[220px] max-w-[420px] gap-2 border-none bg-transparent px-2 font-semibold shadow-none hover:bg-muted"
               >
                 <SelectValue />
               </SelectTrigger>
@@ -471,7 +471,7 @@ function DealsContent() {
                   </label>
                   <SaveStateIndicator state={termSaveState} />
                 </div>
-                <div className="mt-1.5">
+                <div className="mt-2">
                   {readOnly ? (
                     <p className="py-2 text-sm font-medium">
                       {TERM_LENGTH_LABEL[deal.deal.termLength]}
@@ -504,7 +504,7 @@ function DealsContent() {
                     disabled={readOnly}
                   />
                 </div>
-                <p className="mt-1.5 text-xs text-muted-foreground">
+                <p className="mt-2 text-xs text-muted-foreground">
                   Tags for search and reporting. Each line item sets its own category below.
                 </p>
               </div>
@@ -515,7 +515,7 @@ function DealsContent() {
                   </label>
                   <SaveStateIndicator state={regionSaveState} />
                 </div>
-                <div className="mt-1.5">
+                <div className="mt-2">
                   <Select value={region} onValueChange={handleRegionChange}>
                     <SelectTrigger id="deal-region" disabled={updateDealMutation.isPending}>
                       <SelectValue />
@@ -530,11 +530,11 @@ function DealsContent() {
                   </Select>
                 </div>
                 {lineItems.length > 0 && (
-                  <p className="mt-1.5 text-xs text-muted-foreground">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     Line item values aren&apos;t converted automatically. Enter values in the new currency.
                   </p>
                 )}
-                <p className="mt-1.5 text-xs text-muted-foreground">
+                <p className="mt-2 text-xs text-muted-foreground">
                   FX rates last synced {formatFxAsOf()}
                 </p>
               </div>
@@ -567,8 +567,8 @@ function DealsContent() {
                     history.
                   </p>
                   {!readOnly && (
-                    <Button className="mt-5" onClick={handleAddLineItem}>
-                      <Plus className="mr-1.5 h-4 w-4" /> Add Line Item
+                    <Button className="mt-6" onClick={handleAddLineItem}>
+                      <Plus className="mr-2 h-4 w-4" /> Add Line Item
                     </Button>
                   )}
                 </div>
@@ -614,10 +614,10 @@ function DealsContent() {
                   ))}
                   {addLineItemMutation.isPending && (
                     <section className="surface-card overflow-hidden">
-                      <div className="p-5">
+                      <div className="p-6">
                         <p className="text-sm text-muted-foreground">Adding line item…</p>
                       </div>
-                      <div className="px-5 pb-5">
+                      <div className="px-6 pb-6">
                         <AiPanelSkeleton />
                       </div>
                     </section>
@@ -630,7 +630,7 @@ function DealsContent() {
                   type="button"
                   onClick={handleAddLineItem}
                   disabled={addLineItemMutation.isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-input bg-card/40 py-4 text-sm font-medium text-muted-foreground transition-colors hover:border-ai hover:bg-ai-softer hover:text-ai disabled:cursor-not-allowed disabled:opacity-60"
+                  className="pressable-card flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-input bg-card/40 py-4 text-sm font-medium text-muted-foreground pressable hover:border-foreground/30 hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {addLineItemMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -648,7 +648,7 @@ function DealsContent() {
                 <div className="flex flex-wrap gap-10">
                   <div>
                     <p className="label-caps">Total deal value</p>
-                    <p className="mt-1.5 text-3xl font-semibold tracking-tight tabular-nums">
+                    <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">
                       {formatMoney(animatedDealValueTotal, region)}
                     </p>
                     {region !== "north_america" && (
@@ -659,7 +659,7 @@ function DealsContent() {
                   </div>
                   <div className="min-w-[280px] flex-1">
                     <p className="label-caps">Blended discount</p>
-                    <p className="mt-1.5 text-3xl font-semibold tracking-tight tabular-nums">
+                    <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">
                       {pct(animatedBlended)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">Weighted across all lines</p>
@@ -678,7 +678,7 @@ function DealsContent() {
                 </div>
               </div>
 
-              <p className="mt-5 max-w-3xl border-t border-border pt-5 text-sm leading-relaxed text-muted-foreground">
+              <p className="mt-6 max-w-3xl border-t border-border pt-6 text-sm leading-relaxed text-muted-foreground">
                 {policy.note} Term: {TERM_LENGTH_LABEL[deal.deal.termLength]}.
               </p>
 
@@ -688,7 +688,7 @@ function DealsContent() {
                 </p>
               )}
               {deal.deal.approvalState !== null && (
-                <p className="mt-3 text-sm font-semibold text-ai">
+                <p className="mt-3 text-sm font-semibold text-foreground">
                   {deal.deal.approvalState === "approved"
                     ? "Deal approved. The rep has been notified."
                     : "Changes requested. Sent back to the rep."}
@@ -704,7 +704,7 @@ function DealsContent() {
           aria-label="Deal policy summary"
           className="fixed inset-x-0 bottom-0 z-30 animate-in fade-in slide-in-from-bottom-2 px-6 pb-4 duration-300"
         >
-          <div className="surface-card mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-x-8 gap-y-3 border-border/80 bg-card/95 px-5 py-3.5 shadow-lift backdrop-blur">
+          <div className="surface-card mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-x-8 gap-y-3 border-border/80 bg-card/95 px-6 py-4 shadow-lift backdrop-blur">
             <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
               <div className="hidden shrink-0 sm:block">
                 <p className="label-caps">Total deal value</p>
@@ -719,12 +719,12 @@ function DealsContent() {
                     {pct(animatedBlended)}
                   </p>
                 </div>
-                <PolicyGauge value={blended} size="sm" showHeadroom={false} className="mt-1.5" />
+                <PolicyGauge value={blended} size="sm" showHeadroom={false} className="mt-2" />
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <span
-                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold ${dealBadge.cls}`}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${dealBadge.cls}`}
               >
                 <span className="h-2 w-2 rounded-full bg-current" />
                 {dealBadge.label}

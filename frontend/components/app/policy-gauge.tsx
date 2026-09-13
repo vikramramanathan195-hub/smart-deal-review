@@ -60,7 +60,7 @@ export function PolicyGauge({
       </div>
 
       {size === "md" && (
-        <div className="relative mt-1.5 h-4 text-[11px] font-medium text-muted-foreground">
+        <div className="relative mt-2 h-4 text-xs font-medium text-muted-foreground">
           <span className="absolute left-0">0%</span>
           <span
             className="absolute -translate-x-1/2 whitespace-nowrap text-foreground"
@@ -75,7 +75,7 @@ export function PolicyGauge({
       {size === "md" && showHeadroom && (
         <p
           className={cn(
-            "mt-1.5 text-xs font-medium",
+            "mt-2 text-xs font-medium",
             exceeds ? "text-danger" : "text-success",
           )}
         >

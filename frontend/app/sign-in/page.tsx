@@ -85,22 +85,22 @@ export default function SignIn() {
       <section className="relative flex flex-col justify-between overflow-hidden bg-primary px-8 py-10 text-primary-foreground lg:w-[52%] lg:px-16 lg:py-14">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-32 -top-32 h-[520px] w-[520px] rounded-full bg-ai/30 blur-3xl"
+          className="pointer-events-none absolute -right-32 -top-32 h-[520px] w-[520px] rounded-full bg-primary-foreground/10 blur-3xl"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-40 -left-24 h-[420px] w-[420px] rounded-full bg-ai/20 blur-3xl"
+          className="pointer-events-none absolute -bottom-40 -left-24 h-[420px] w-[420px] rounded-full bg-primary-foreground/[0.06] blur-3xl"
         />
 
         <div className="relative flex items-center gap-3">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground text-sm font-semibold text-primary">
             D
           </span>
-          <span className="text-[15px] font-semibold tracking-tight">Deal Discount Review</span>
+          <span className="text-sm font-semibold tracking-tight">Deal Discount Review</span>
         </div>
 
         <div className="relative my-12 max-w-xl lg:my-0">
-          <h1 className="text-3xl font-semibold leading-tight tracking-tight lg:text-[2.6rem] lg:leading-[1.1]">
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight lg:text-4xl">
             Price every line item with confidence.
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-primary-foreground/75">
@@ -111,7 +111,7 @@ export default function SignIn() {
           <ul className="mt-10 space-y-6">
             {VALUE_PROPS.map(({ icon: Icon, title, body }) => (
               <li key={title} className="flex gap-4">
-                <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-foreground/10 text-primary-foreground">
+                <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-foreground/10 text-primary-foreground">
                   <Icon className="h-4 w-4" />
                 </span>
                 <div>
@@ -124,7 +124,7 @@ export default function SignIn() {
 
           <div className="mt-10 max-w-sm rounded-xl border border-primary-foreground/15 bg-primary-foreground/[0.06] p-4 backdrop-blur">
             <div className="flex items-baseline justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary-foreground/80">
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/80">
                 Blended discount
               </p>
               <p className="text-lg font-semibold tabular-nums">12.5%</p>
@@ -149,8 +149,8 @@ export default function SignIn() {
           <div className="lg:hidden">
             <LogoMark size={40} />
           </div>
-          <h2 className="mt-5 text-2xl font-semibold tracking-tight lg:mt-0">Sign in</h2>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+          <h2 className="mt-6 text-2xl font-semibold tracking-tight lg:mt-0">Sign in</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
             Choose a role to continue. The two views are built for different jobs.
           </p>
 
@@ -163,16 +163,16 @@ export default function SignIn() {
                   type="button"
                   disabled={loginMutation.isPending}
                   onClick={() => submit(role)}
-                  className="surface-card group flex w-full items-center gap-4 p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                  className="surface-card pressable-card group flex w-full items-center gap-4 p-4 text-left hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-ai-softer text-ai">
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-secondary text-foreground">
                     <Icon className="h-5 w-5" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold">
                       Continue as {ROLE_LABEL[role]}
                     </span>
-                    <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                    <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
                       {description}
                     </span>
                   </span>

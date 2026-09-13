@@ -25,7 +25,7 @@ export function TopNav({ right }: { right?: ReactNode }) {
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-6">
         <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
           <LogoMark />
-          <span className="whitespace-nowrap text-[15px] font-semibold tracking-tight">
+          <span className="whitespace-nowrap text-sm font-semibold tracking-tight">
             Deal Discount Review
           </span>
         </Link>
@@ -38,7 +38,7 @@ export function TopNav({ right }: { right?: ReactNode }) {
             <Link
               key={item.to}
               href={item.to}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground ${
+              className={`pressable rounded-md px-3 py-2 text-sm font-medium hover:bg-muted hover:text-foreground ${
                 pathname === item.to ? "bg-muted text-foreground" : "text-muted-foreground"
               }`}
             >
@@ -50,11 +50,11 @@ export function TopNav({ right }: { right?: ReactNode }) {
           <button
             type="button"
             onClick={() => document.dispatchEvent(new CustomEvent("command-palette:open"))}
-            className="hidden items-center gap-2 rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
+            className="pressable hidden items-center gap-2 rounded-md border border-border bg-secondary px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
           >
             <Search className="h-3.5 w-3.5" />
             Search
-            <kbd className="ml-1 rounded border border-border bg-card px-1 font-sans text-[10px] font-semibold">
+            <kbd className="ml-1 rounded-sm border border-border bg-card px-1 font-sans text-xs font-semibold leading-none">
               ⌘K
             </kbd>
           </button>

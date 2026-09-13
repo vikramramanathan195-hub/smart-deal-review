@@ -68,7 +68,7 @@ function StatCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="surface-card p-5 transition-shadow hover:shadow-card-hover">
+    <div className="surface-card p-6 transition-shadow hover:shadow-card-hover">
       <p className="label-caps">{label}</p>
       {children}
     </div>
@@ -81,7 +81,7 @@ export default function Health() {
       <TopNav
         right={
           <>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-success-soft px-3 py-1.5 text-xs font-semibold text-success">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-success-soft px-3 py-2 text-xs font-semibold text-success">
               <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-success text-success" />
               Live
             </span>
@@ -110,10 +110,10 @@ export default function Health() {
             <div className="mt-2 grid grid-cols-3 gap-2">
               {latencyPercentiles.map((p) => (
                 <div key={p.label} className="rounded-lg border border-border bg-secondary/60 px-2 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <p className="label-caps">
                     {p.label}
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold tabular-nums">{p.value}</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums">{p.value}</p>
                 </div>
               ))}
             </div>
@@ -151,7 +151,7 @@ export default function Health() {
               Peak 5,605 req/5min · 52,805 total
             </p>
           </div>
-          <div className="mt-5 h-[320px]">
+          <div className="mt-6 h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
@@ -211,8 +211,8 @@ export default function Health() {
                   {endpointStats.map((e) => (
                     <tr key={e.path}>
                       <td className="py-3 pr-4">
-                        <span className="font-mono text-[13px] font-semibold text-ai">{e.method}</span>{" "}
-                        <span className="font-mono text-[13px] text-foreground">{e.path}</span>
+                        <span className="font-mono text-sm font-semibold text-foreground">{e.method}</span>{" "}
+                        <span className="font-mono text-sm text-foreground">{e.path}</span>
                       </td>
                       <td className="py-3 text-right tabular-nums">{e.requests.toLocaleString()}</td>
                       <td className="py-3 text-right tabular-nums">{e.latencyMs} ms</td>
@@ -227,14 +227,14 @@ export default function Health() {
             <h2 className="text-sm font-semibold">Recent Events</h2>
             <div className="mt-4 max-h-64 space-y-3 overflow-y-auto pr-1">
               {recentEvents.map((ev, i) => (
-                <div key={i} className="flex items-start gap-2.5">
+                <div key={i} className="flex items-start gap-3">
                   <span
-                    className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${
+                    className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
                       ev.tone === "warning" ? "bg-warning" : "bg-muted-foreground/40"
                     }`}
                     aria-hidden="true"
                   />
-                  <p className="text-[13px] leading-relaxed text-foreground">
+                  <p className="text-sm leading-relaxed text-foreground">
                     <span className="tabular-nums text-muted-foreground">{ev.time}</span>
                     <span className="text-muted-foreground"> · </span>
                     {ev.text}

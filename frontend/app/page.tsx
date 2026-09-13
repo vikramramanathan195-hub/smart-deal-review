@@ -115,23 +115,23 @@ export default function Home() {
         {stats && (
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="surface-card flex items-center gap-3 p-4">
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ai-softer text-ai">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
                 <DollarSign className="h-4 w-4" />
               </span>
               <div>
                 <p className="label-caps">Total pipeline</p>
-                <p className="mt-0.5 text-lg font-semibold tabular-nums">
+                <p className="mt-1 text-lg font-semibold tabular-nums">
                   {currency(animatedTotalUsd)}
                 </p>
               </div>
             </div>
             <div className="surface-card flex items-center gap-3 p-4">
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ai-softer text-ai">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
                 <Percent className="h-4 w-4" />
               </span>
               <div>
                 <p className="label-caps">Avg. blended discount</p>
-                <p className="mt-0.5 text-lg font-semibold tabular-nums">
+                <p className="mt-1 text-lg font-semibold tabular-nums">
                   {pct(animatedAvgDiscount)}
                 </p>
               </div>
@@ -148,7 +148,7 @@ export default function Home() {
               </span>
               <div>
                 <p className="label-caps">Needs approval</p>
-                <p className="mt-0.5 text-lg font-semibold tabular-nums">
+                <p className="mt-1 text-lg font-semibold tabular-nums">
                   {stats.needsApproval.length}
                 </p>
               </div>
@@ -175,20 +175,20 @@ export default function Home() {
           {!dealsQuery.isPending && !dealsQuery.isError && (dealsQuery.data.length > 0) && (
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search deals or customers…"
                   aria-label="Search deals by name or customer"
-                  className="h-8 w-64 pl-8 pr-7 text-sm sm:w-72"
+                  className="h-8 w-64 pl-8 pr-8 text-sm sm:w-72"
                 />
                 {query && (
                   <button
                     type="button"
                     onClick={() => setQuery("")}
                     aria-label="Clear search"
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -213,7 +213,7 @@ export default function Home() {
                 onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
                 aria-label={sortDir === "asc" ? "Sort ascending" : "Sort descending"}
                 title={sortDir === "asc" ? "Ascending" : "Descending"}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground pressable hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 {sortDir === "asc" ? (
                   <ArrowDownAZ className="h-4 w-4" />
@@ -244,7 +244,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="text-sm font-medium text-ai hover:underline"
+              className="pressable text-sm font-medium text-foreground underline underline-offset-4 hover:opacity-70"
             >
               Clear search
             </button>
@@ -277,7 +277,7 @@ export default function Home() {
 
         <Link
           href="/health"
-          className="surface-card flex items-center gap-3 p-4 text-sm font-medium transition-shadow hover:shadow-card-hover"
+          className="surface-card pressable-card flex items-center gap-3 p-4 text-sm font-medium hover:shadow-card-hover"
         >
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
             <Activity className="h-4 w-4" />
@@ -309,16 +309,16 @@ function DealCard({ deal }: { deal: DealSummary }) {
   return (
     <Link
       href={`/deals?deal=${deal.id}`}
-      className="surface-card group flex flex-col p-5 transition-shadow hover:shadow-card-hover"
+      className="surface-card pressable-card group flex flex-col p-6 hover:shadow-card-hover"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold leading-snug">{deal.name}</h3>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{deal.customerName}</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{deal.customerName}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${badge.cls}`}
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${badge.cls}`}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-current" />
             {badge.label}
@@ -327,7 +327,7 @@ function DealCard({ deal }: { deal: DealSummary }) {
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-end gap-6">
+      <div className="mt-6 flex flex-wrap items-end gap-6">
         <div>
           <p className="label-caps">Total value</p>
           <p className="mt-1 text-xl font-semibold tabular-nums">
@@ -346,7 +346,7 @@ function DealCard({ deal }: { deal: DealSummary }) {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border pt-3 text-xs text-muted-foreground">
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
         <span>{regionInfo(deal.region).label}</span>
         <span aria-hidden="true">·</span>
         <span>{TERM_LENGTH_LABEL[deal.termLength]}</span>
@@ -358,7 +358,7 @@ function DealCard({ deal }: { deal: DealSummary }) {
           {deal.productCategories.map((category) => (
             <span
               key={category}
-              className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-foreground"
+              className="rounded-sm bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground"
             >
               {category}
             </span>

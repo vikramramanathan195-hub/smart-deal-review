@@ -33,7 +33,7 @@ function ConfidenceBadge({ level }: { level: Confidence }) {
   }[level];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${map.cls}`}
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${map.cls}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${map.dot}`} />
       {map.text}
@@ -74,7 +74,7 @@ function historyInsight(entries: DiscountHistoryEntry[]): string | null {
 
 function PendingBadge() {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">
+    <span className="inline-flex items-center gap-2 rounded-full bg-warning-soft px-3 py-1 text-xs font-semibold text-warning">
       <Clock className="h-3 w-3" />
       Pending manager approval
     </span>
@@ -161,18 +161,18 @@ function DiscountHistoryLog({ entries }: { entries: LineItem["history"] }) {
 }
 
 function PanelCard({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-xl border border-border bg-card p-5 shadow-card">{children}</div>;
+  return <div className="rounded-xl border border-border bg-card p-6 shadow-card">{children}</div>;
 }
 
 function FactorRow({ factor, max }: { factor: Factor; max: number }) {
   const negative = !factor.positive;
   const width = Math.max(4, (Math.abs(factor.contributionPct) / max) * 100);
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[13px] text-foreground">{factor.name}</span>
+        <span className="text-sm text-foreground">{factor.name}</span>
         <span
-          className={`text-[13px] font-semibold tabular-nums ${negative ? "text-danger" : "text-success"}`}
+          className={`text-sm font-semibold tabular-nums ${negative ? "text-danger" : "text-success"}`}
         >
           {negative ? "−" : factor.name.startsWith("Baseline") ? "" : "+"}
           {Math.abs(factor.contributionPct).toFixed(1)}%
@@ -190,11 +190,11 @@ function FactorRow({ factor, max }: { factor: Factor; max: number }) {
 
 function StatBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-secondary/60 px-3 py-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="rounded-lg border border-border bg-secondary/60 px-3 py-3">
+      <p className="label-caps">
         {label}
       </p>
-      <p className="mt-0.5 text-sm font-semibold tabular-nums">{value}</p>
+      <p className="mt-1 text-sm font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
@@ -221,9 +221,9 @@ export function AiPanelSkeleton() {
 
 function PanelShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative overflow-hidden rounded-xl bg-ai-softer p-5 pl-6">
+    <div className="relative overflow-hidden rounded-xl bg-ai-softer p-6 pl-6">
       <span className="absolute inset-y-0 left-0 w-1 bg-ai" aria-hidden="true" />
-      <div className="mb-4 flex items-center gap-2.5">
+      <div className="mb-4 flex items-center gap-3">
         <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-ai text-ai-foreground">
           <Sparkles className="h-3.5 w-3.5" />
         </span>
@@ -369,9 +369,9 @@ export function AiPanel({
                   : recommendation.recommendedPct,
             )}
           </p>
-          <p className="mt-2 text-[13px] tabular-nums text-muted-foreground">
+          <p className="mt-2 text-sm tabular-nums text-muted-foreground">
             Customer pays {formatMoney(shownNet, region)}
-            <span className="mx-1.5" aria-hidden="true">
+            <span className="mx-2" aria-hidden="true">
               ·
             </span>
             saves {formatMoney(lineItem.dealValue - shownNet, region)}
@@ -391,7 +391,7 @@ export function AiPanel({
             </p>
           )}
           {appliedFeedback && (
-            <div className="mt-2 space-y-0.5">
+            <div className="mt-2 space-y-1">
               <p className="text-xs text-muted-foreground">
                 AI suggested {pct(recommendation.recommendedPct)}
               </p>
@@ -410,7 +410,7 @@ export function AiPanel({
             </p>
           )}
 
-          <div className="my-5 h-px bg-border" />
+          <div className="my-6 h-px bg-border" />
 
           {/* Manager view on a pending line: approve/reject controls. */}
           {readOnly && isPending ? (
@@ -441,7 +441,7 @@ export function AiPanel({
           ) : readOnly ? (
             <>
               <p className="label-caps">Your decision</p>
-              <p className="mt-2 text-[13px] text-muted-foreground">
+              <p className="mt-2 text-sm text-muted-foreground">
                 Read-only. Reps own line-level decisions.
               </p>
             </>
@@ -449,7 +449,7 @@ export function AiPanel({
             <>
               <p className="label-caps">Your decision</p>
               {isPending ? (
-                <p className="mt-2 text-[13px] text-muted-foreground">
+                <p className="mt-2 text-sm text-muted-foreground">
                   Locked while this proposal awaits manager approval.
                 </p>
               ) : (
@@ -484,10 +484,10 @@ export function AiPanel({
                       <label className="label-caps" htmlFor={`discount-${lineItem.id}`}>
                         Proposed discount %
                       </label>
-                      <div className="relative mt-1.5">
+                      <div className="relative mt-2">
                         <Input
                           id={`discount-${lineItem.id}`}
-                          className="pr-7 tabular-nums"
+                          className="pr-8 tabular-nums"
                           inputMode="decimal"
                           autoFocus
                           aria-invalid={!!discountError}
@@ -503,7 +503,7 @@ export function AiPanel({
                         </span>
                       </div>
                       {discountError && (
-                        <p className="mt-1.5 text-xs font-medium text-danger">{discountError}</p>
+                        <p className="mt-2 text-xs font-medium text-danger">{discountError}</p>
                       )}
 
                       <div className="mt-3">
@@ -512,7 +512,7 @@ export function AiPanel({
                         </label>
                         <Input
                           id={`reason-${lineItem.id}`}
-                          className="mt-1.5"
+                          className="mt-2"
                           value={reasonDraft}
                           placeholder="Why are you proposing this discount?"
                           onChange={(e) => setReasonDraft(e.target.value)}
@@ -521,7 +521,7 @@ export function AiPanel({
                           }}
                         />
                         {reasonMissing && (
-                          <p className="mt-1.5 text-xs text-muted-foreground">
+                          <p className="mt-2 text-xs text-muted-foreground">
                             A reason is required for every proposed discount.
                           </p>
                         )}
@@ -544,7 +544,7 @@ export function AiPanel({
                       )}
                       {proposalPreview && (
                         <p
-                          className={`mt-1.5 text-xs font-medium ${
+                          className={`mt-2 text-xs font-medium ${
                             proposalPreview.next > POLICY_CEILING_PCT ? "text-danger" : "text-success"
                           }`}
                         >
@@ -591,12 +591,12 @@ export function AiPanel({
           {/* Summary state once a decision is saved. */}
           {decided && (
             <div
-              className={`mt-3 rounded-lg p-2.5 transition-colors ${
+              className={`mt-3 rounded-lg p-3 transition-colors ${
                 justSaved ? "bg-success-soft" : "bg-transparent"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="flex items-center gap-1.5 text-xs font-medium text-ai">
+                <p className="flex items-center gap-2 text-xs font-medium text-ai">
                   {justSaved && <Check className="h-3.5 w-3.5 text-success" />}
                   <span>
                     Applied {pct(applied)} · {lineItem.decision}
@@ -618,8 +618,8 @@ export function AiPanel({
             </div>
           )}
           {isPending && (
-            <div className="mt-3 rounded-lg border border-warning/40 bg-warning-soft p-2.5">
-              <p className="flex items-center gap-1.5 text-xs leading-relaxed text-warning">
+            <div className="mt-3 rounded-lg border border-warning/40 bg-warning-soft p-3">
+              <p className="flex items-center gap-2 text-xs leading-relaxed text-warning">
                 <Clock className="h-3.5 w-3.5 shrink-0" />
                 <span>
                   Proposed {pct(lineItem.pendingDiscountPct ?? 0)} · pending manager approval
@@ -636,7 +636,7 @@ export function AiPanel({
                   type="button"
                   disabled={isUndoingDecision}
                   onClick={() => void onUndoDecision().catch(() => {})}
-                  className="mt-1.5 text-xs font-medium text-warning underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-2 text-xs font-medium text-warning underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isUndoingDecision ? "Retracting…" : "Retract proposal"}
                 </button>
@@ -652,14 +652,14 @@ export function AiPanel({
           <p className="mt-1 text-xs text-muted-foreground">
             Each factor below adjusts the baseline discount.
           </p>
-          <div className="mt-4 space-y-3.5">
+          <div className="mt-4 space-y-4">
             {recommendation.factors.map((f) => (
               <FactorRow key={f.name} factor={f} max={maxFactor} />
             ))}
           </div>
           <div className="my-4 h-px bg-border" />
           <div className="flex items-center justify-between">
-            <span className="text-[13px] font-medium">Final recommendation</span>
+            <span className="text-sm font-medium">Final recommendation</span>
             <span className="text-base font-semibold tabular-nums">
               {pct(Math.round(total * 10) / 10)}
             </span>
@@ -678,13 +678,13 @@ export function AiPanel({
             <StatBox label="Avg disc." value={pct(customer.avgDiscountPct)} />
           </div>
 
-          <p className="label-caps mt-5">Discount history</p>
+          <p className="label-caps mt-6">Discount history</p>
           {discountHistory.length === 0 && (
-            <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
               No past deals with this customer yet, so there is no history to compare against.
             </p>
           )}
-          <div className="mt-2.5 space-y-2.5">
+          <div className="mt-3 space-y-3">
             {discountHistory.map((h) => (
               <div key={h.date} className="flex items-center gap-3">
                 <span className="w-16 shrink-0 text-xs text-muted-foreground">{h.date}</span>
@@ -712,8 +712,8 @@ export function AiPanel({
           )}
 
           {callout && (
-            <div className="mt-3 flex gap-2.5 rounded-lg bg-warning-soft p-3">
-              <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-warning text-[10px] font-bold text-primary-foreground">
+            <div className="mt-3 flex gap-3 rounded-lg bg-warning-soft p-3">
+              <span className="mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-warning text-xs font-bold text-primary-foreground">
                 !
               </span>
               <p className="text-xs leading-relaxed text-warning">{callout}</p>
@@ -728,7 +728,7 @@ export function AiPanel({
 export function AiPanelEmpty() {
   return (
     <PanelShell>
-      <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
+      <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
         <AlertTriangle className="h-4 w-4 text-warning" />
         Pick a product category and enter a deal value to get a recommendation.
       </div>
