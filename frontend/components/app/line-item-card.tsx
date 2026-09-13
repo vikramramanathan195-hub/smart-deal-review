@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { AiPanel, AiPanelEmpty, AiPanelSkeleton } from "@/components/app/ai-panel";
 import { SaveStateIndicator, type SaveState } from "@/components/app/save-state";
-import { formatMoney, PRODUCT_CATEGORIES } from "@/lib/deal-data";
+import { formatMoney, pct, PRODUCT_CATEGORIES } from "@/lib/deal-data";
 import { currencySymbol } from "@/lib/fx-rates";
 import type {
   Customer,
@@ -167,8 +167,27 @@ export function LineItemCard({
 
   const fieldsReadOnly = readOnly || isLocked;
 
+  // Decision state in the header so a deal can be scanned line by line
+  // without opening each AI panel to find out what has been settled.
+  const appliedPct = lineItem.appliedDiscountPct ?? recommendation.recommendedPct;
+  const lineStatus =
+    lineItem.lineApprovalState === "pending_approval"
+      ? {
+          label: `Proposed ${pct(lineItem.pendingDiscountPct ?? 0)} · in review`,
+          cls: "bg-warning-soft text-warning",
+        }
+      : lineItem.decision === "pending"
+        ? { label: "Needs decision", cls: "bg-secondary text-muted-foreground" }
+        : {
+            label: `${lineItem.decision === "accepted" ? "Accepted" : "Applied"} ${pct(appliedPct)}`,
+            cls: "bg-success-soft text-success",
+          };
+
   return (
-    <section className="surface-card animate-in fade-in slide-in-from-top-2 overflow-hidden duration-300 transition-shadow hover:shadow-card-hover">
+    <section
+      id={`line-${lineItem.id}`}
+      className="surface-card animate-in fade-in slide-in-from-top-2 overflow-hidden duration-300 transition-shadow hover:shadow-card-hover"
+    >
       {isLocked && (
         <div className="flex items-center gap-2 border-b border-warning/30 bg-warning-soft px-6 py-2 text-xs font-medium text-warning">
           <Lock className="h-3 w-3" />
@@ -243,6 +262,13 @@ export function LineItemCard({
             <p className="mt-2 text-xs font-medium text-danger">{valueError}</p>
           )}
         </div>
+
+        <span
+          className={`mt-6 inline-flex h-8 shrink-0 items-center gap-2 rounded-full px-3 text-xs font-semibold ${lineStatus.cls}`}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+          {lineStatus.label}
+        </span>
 
         {!readOnly && (
           <button

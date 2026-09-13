@@ -32,6 +32,8 @@ import { ApiError } from "@/lib/api";
 import { useCountUp } from "@/lib/use-count-up";
 import { NewDealDialog } from "@/components/app/new-deal-dialog";
 import { PolicyGauge } from "@/components/app/policy-gauge";
+import { ProgressSegments } from "@/components/app/progress-segments";
+import { InitialsAvatar } from "@/components/app/initials-avatar";
 import type { DealSummary } from "@/lib/api-types";
 
 type SortKey = "name" | "value" | "discount";
@@ -92,8 +94,21 @@ export default function Home() {
     const needsApproval = data.filter(
       (d) => d.status === "needs_approval" && d.approvalState == null,
     );
-    return { totalUsd, avgDiscount, needsApproval };
+    // A deal is on the rep's plate while any line is undecided or a manager
+    // has sent it back; lines sitting with a manager don't count.
+    const waitingOnRep = data.filter(
+      (d) =>
+        d.lineItemCount - d.decidedLineCount - d.inReviewLineCount > 0 ||
+        d.approvalState === "rejected",
+    );
+    return { totalUsd, avgDiscount, needsApproval, waitingOnRep };
   }, [dealsQuery.data]);
+
+  const attention = stats
+    ? role === "manager"
+      ? { label: "Needs approval", count: stats.needsApproval.length, tone: "bg-danger-soft text-danger" }
+      : { label: "Waiting on you", count: stats.waitingOnRep.length, tone: "bg-warning-soft text-warning" }
+    : null;
 
   const animatedTotalUsd = useCountUp(stats?.totalUsd ?? 0);
   const animatedAvgDiscount = useCountUp(stats?.avgDiscount ?? 0);
@@ -139,18 +154,14 @@ export default function Home() {
             <div className="surface-card flex items-center gap-3 p-4">
               <span
                 className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                  stats.needsApproval.length > 0
-                    ? "bg-danger-soft text-danger"
-                    : "bg-success-soft text-success"
+                  attention && attention.count > 0 ? attention.tone : "bg-success-soft text-success"
                 }`}
               >
                 <AlertTriangle className="h-4 w-4" />
               </span>
               <div>
-                <p className="label-caps">Needs approval</p>
-                <p className="mt-1 text-lg font-semibold tabular-nums">
-                  {stats.needsApproval.length}
-                </p>
+                <p className="label-caps">{attention?.label}</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums">{attention?.count ?? 0}</p>
               </div>
             </div>
           </div>
@@ -312,9 +323,12 @@ function DealCard({ deal }: { deal: DealSummary }) {
       className="surface-card pressable-card group flex flex-col p-6 hover:shadow-card-hover"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold leading-snug">{deal.name}</h3>
-          <p className="mt-1 truncate text-xs text-muted-foreground">{deal.customerName}</p>
+        <div className="flex min-w-0 items-center gap-3">
+          <InitialsAvatar name={deal.customerName} size="sm" />
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold leading-snug">{deal.name}</h3>
+            <p className="mt-1 truncate text-xs text-muted-foreground">{deal.customerName}</p>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span
@@ -351,8 +365,15 @@ function DealCard({ deal }: { deal: DealSummary }) {
         <span aria-hidden="true">·</span>
         <span>{TERM_LENGTH_LABEL[deal.termLength]}</span>
         <span aria-hidden="true">·</span>
-        <span>
-          {deal.lineItemCount} line{deal.lineItemCount === 1 ? "" : "s"}
+        <span className="inline-flex items-center gap-2">
+          <ProgressSegments
+            total={deal.lineItemCount}
+            decided={deal.decidedLineCount}
+            inReview={deal.inReviewLineCount}
+          />
+          {deal.lineItemCount === 0
+            ? "No lines yet"
+            : `${deal.decidedLineCount} of ${deal.lineItemCount} decided`}
         </span>
         <div className="ml-auto flex flex-wrap gap-1">
           {deal.productCategories.map((category) => (

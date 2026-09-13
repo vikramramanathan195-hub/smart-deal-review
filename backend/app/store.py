@@ -52,7 +52,7 @@ class DealState:
     discount_history: list[DiscountHistoryEntry]
     line_items: dict[str, LineItem] = field(default_factory=dict)
     recommendations: dict[str, DiscountRecommendation] = field(default_factory=dict)
-    approval_history: list[str | None] = field(default_factory=list)
+    approval_history: list[tuple[str | None, str | None]] = field(default_factory=list)
     # One undo stack per line item, mirroring approval_history above — a
     # snapshot of the decision-related fields is pushed before every mutation
     # in decide_line_item / resolve_line_item_approval, so either the rep's
@@ -364,18 +364,32 @@ class DataStore:
         item.pending_discount_pct = None
         return item
 
-    def set_approval(self, deal_id: str, decision: str) -> DealState:
+    def set_approval(self, deal_id: str, decision: str, note: str | None = None) -> DealState:
         state = self.get_deal_state(deal_id)
-        state.approval_history.append(state.deal.approval_state)
+        state.approval_history.append((state.deal.approval_state, state.deal.approval_note))
         state.deal.approval_state = decision
+        state.deal.approval_note = note
         return state
 
     def undo_approval(self, deal_id: str) -> DealState:
         state = self.get_deal_state(deal_id)
         if not state.approval_history:
             raise NotFoundError(f"No approval decision to undo for deal '{deal_id}'")
-        state.deal.approval_state = state.approval_history.pop()
+        state.deal.approval_state, state.deal.approval_note = state.approval_history.pop()
         return state
+
+    def line_progress(self, state: DealState) -> tuple[int, int]:
+        """(decided, in_review): a line counts as decided once the rep has
+        accepted or adjusted it and nothing is awaiting a manager; a rejected
+        proposal resets the line to undecided, so it isn't counted here."""
+        decided = 0
+        in_review = 0
+        for item in state.line_items.values():
+            if item.line_approval_state == "pending_approval":
+                in_review += 1
+            elif item.decision != "pending":
+                decided += 1
+        return decided, in_review
 
 
 store = DataStore()

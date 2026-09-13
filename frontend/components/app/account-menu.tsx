@@ -40,7 +40,11 @@ export function AccountMenu() {
       {
         onSuccess: (data) => {
           signIn(data.accessToken, data.email, data.role);
-          router.push("/deals");
+          // Stay on the same deal: a manager switching in to review what a
+          // rep just proposed shouldn't be dropped onto a different deal.
+          const here = `${window.location.pathname}${window.location.search}`;
+          router.push(here === "/sign-in" ? "/" : here);
+          toast.success(`Now viewing as ${ROLE_LABEL[data.role]}`);
         },
         onError: (error) => {
           toast.error("Couldn't switch role", { description: error.message });

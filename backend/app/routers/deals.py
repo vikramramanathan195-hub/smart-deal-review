@@ -63,6 +63,8 @@ def list_deals(_user=Depends(get_current_user)) -> list[DealSummary]:
             region=state.deal.region,
             customer_name=state.customer.name,
             line_item_count=len(state.line_items),
+            decided_line_count=store.line_progress(state)[0],
+            in_review_line_count=store.line_progress(state)[1],
             term_length=state.deal.term_length,
             product_categories=state.deal.product_categories,
         )
@@ -234,7 +236,7 @@ def decide_approval(
                 f"{APPROVAL_THRESHOLD_PCT}% approval threshold — no manager decision is required."
             ),
         )
-    state = store.set_approval(deal_id, body.decision)
+    state = store.set_approval(deal_id, body.decision, note=(body.note or "").strip() or None)
     _sync_status(state)
     return ApprovalResponse(deal_id=deal_id, status=state.deal.status, approval_state=state.deal.approval_state)
 

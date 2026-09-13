@@ -101,6 +101,9 @@ class Deal(CamelModel):
     sample_deal_key: str
     status: DealStatus
     approval_state: ApprovalState = None
+    # What the manager said when approving or sending the deal back, so the
+    # rep sees the reason on the deal rather than a bare "changes requested".
+    approval_note: str | None = None
     region: Region = "north_america"
 
 
@@ -114,6 +117,10 @@ class DealSummary(CamelModel):
     region: Region
     customer_name: str
     line_item_count: int
+    # Lines the rep has settled vs. lines sitting with a manager, so the
+    # dashboard can say how far along a deal is without opening it.
+    decided_line_count: int
+    in_review_line_count: int
     term_length: TermLength
     product_categories: list[ProductCategory]
 

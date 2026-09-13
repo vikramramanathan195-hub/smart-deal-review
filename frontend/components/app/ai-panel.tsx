@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { InitialsAvatar } from "@/components/app/initials-avatar";
 import { formatMoney, pct, POLICY_CEILING_PCT } from "@/lib/deal-data";
 import type {
   Confidence,
@@ -161,7 +162,7 @@ function DiscountHistoryLog({ entries }: { entries: LineItem["history"] }) {
 }
 
 function PanelCard({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-xl border border-border bg-card p-6 shadow-card">{children}</div>;
+  return <div className="rounded-lg border border-border bg-card p-6 shadow-card">{children}</div>;
 }
 
 function FactorRow({ factor, max }: { factor: Factor; max: number }) {
@@ -596,7 +597,7 @@ export function AiPanel({
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-xs font-medium text-ai">
+                <p className="flex items-center gap-2 text-xs font-medium text-foreground">
                   {justSaved && <Check className="h-3.5 w-3.5 text-success" />}
                   <span>
                     Applied {pct(applied)} · {lineItem.decision}
@@ -627,7 +628,7 @@ export function AiPanel({
                 </span>
               </p>
               {lineItem.decidedBy && (
-                <p className="mt-1 text-xs text-warning/80">
+                <p className="mt-1 text-xs text-warning">
                   Proposed by <span className="font-semibold">{lineItem.decidedBy}</span>
                 </p>
               )}
@@ -668,10 +669,15 @@ export function AiPanel({
 
         {/* Column 3 — deal-level customer context, shared across every line item */}
         <PanelCard>
-          <h4 className="text-sm font-semibold">Customer context</h4>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {customer.name} · Partner since {customer.partnerSince}
-          </p>
+          <div className="flex items-center gap-3">
+            <InitialsAvatar name={customer.name} size="sm" />
+            <div className="min-w-0">
+              <h4 className="text-sm font-semibold">Customer context</h4>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {customer.name} · Partner since {customer.partnerSince}
+              </p>
+            </div>
+          </div>
           <div className="mt-4 grid grid-cols-3 gap-2">
             <StatBox label="Lifetime" value={customer.lifetimeValue} />
             <StatBox label="Renewal" value={pct(customer.renewalRatePct)} />

@@ -80,6 +80,7 @@ export type Deal = {
   sampleDealKey: string;
   status: DealStatus;
   approvalState: ApprovalState;
+  approvalNote: string | null;
   region: Region;
 };
 
@@ -93,6 +94,8 @@ export type DealSummary = {
   region: Region;
   customerName: string;
   lineItemCount: number;
+  decidedLineCount: number;
+  inReviewLineCount: number;
   termLength: TermLength;
   productCategories: ProductCategory[];
 };

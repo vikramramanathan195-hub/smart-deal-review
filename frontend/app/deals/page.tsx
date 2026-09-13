@@ -3,9 +3,18 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, PackageOpen, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowDown, Check, Plus, PackageOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ProgressSegments } from "@/components/app/progress-segments";
 import { TopNav } from "@/components/app/top-nav";
 import { AccountMenu } from "@/components/app/account-menu";
 import { LineItemCard } from "@/components/app/line-item-card";
@@ -101,6 +110,9 @@ function DealsContent() {
   const [regionSaveState, setRegionSaveState] = useState<SaveState>("idle");
   const [termSaveState, setTermSaveState] = useState<SaveState>("idle");
   const [categoriesSaveState, setCategoriesSaveState] = useState<SaveState>("idle");
+  const [acceptingAll, setAcceptingAll] = useState(false);
+  const [changesDialogOpen, setChangesDialogOpen] = useState(false);
+  const [changesNote, setChangesNote] = useState("");
   const removeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const UNDO_WINDOW_MS = 6000;
 
@@ -304,15 +316,90 @@ function DealsContent() {
     }
   };
 
-  const handleApproval = (decision: "approved" | "rejected") => {
+  const handleApproval = (decision: "approved" | "rejected", note?: string) => {
     approvalMutation.mutate(
-      { decision },
+      { decision, note },
       {
+        onSuccess: () => {
+          if (decision === "rejected") {
+            setChangesDialogOpen(false);
+            setChangesNote("");
+            toast.success("Changes requested", { description: "The rep will see your note on the deal." });
+          }
+        },
         onError: (error) =>
           toast.error("Couldn't record decision", { description: errorMessage(error) }),
       },
     );
   };
+
+  const undecidedLines = lineItems.filter(
+    (li) => li.lineItem.decision === "pending" && li.lineItem.lineApprovalState !== "pending_approval",
+  );
+  const inReviewLines = lineItems.filter((li) => li.lineItem.lineApprovalState === "pending_approval");
+  const decidedCount = lineItems.length - undecidedLines.length - inReviewLines.length;
+
+  const handleAcceptAll = async () => {
+    const targets = undecidedLines;
+    setAcceptingAll(true);
+    try {
+      for (const li of targets) {
+        await decisionMutation.mutateAsync({ lineItemId: li.lineItem.id, body: { action: "accept" } });
+      }
+      toast.success(`Accepted ${targets.length} recommendations`, {
+        description: "Each line can still be undone on its own.",
+      });
+    } catch (error) {
+      toast.error("Couldn't accept every line", { description: errorMessage(error) });
+    } finally {
+      setAcceptingAll(false);
+    }
+  };
+
+  const jumpToPendingLine = () => {
+    const first = inReviewLines[0];
+    if (!first) return;
+    document
+      .getElementById(`line-${first.lineItem.id}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // The one sentence a rep or manager actually wants from the summary: am I
+  // done, and if not, what is the next move.
+  const readiness = (() => {
+    const n = lineItems.length;
+    if (n === 0) return null;
+    const plural = (count: number, one: string, many: string) => (count === 1 ? one : many);
+    if (readOnly) {
+      if (inReviewLines.length > 0)
+        return {
+          tone: "text-warning",
+          text: `${inReviewLines.length} line ${plural(inReviewLines.length, "proposal is", "proposals are")} awaiting your review.`,
+        };
+      if (undecidedLines.length > 0)
+        return { tone: "text-muted-foreground", text: `${undecidedLines.length} of ${n} lines still with the rep.` };
+      if (policy.status === "exceeds" && approvalState === null)
+        return { tone: "text-danger", text: "All lines decided. This deal needs your approval." };
+      return { tone: "text-success", text: `All ${n} lines decided.` };
+    }
+    if (approvalState === "rejected")
+      return { tone: "text-warning", text: "Your manager requested changes. Revise and resubmit." };
+    if (undecidedLines.length > 0)
+      return {
+        tone: "text-foreground",
+        text: `${undecidedLines.length} of ${n} ${plural(n, "line", "lines")} still ${plural(undecidedLines.length, "needs", "need")} a decision.`,
+      };
+    if (inReviewLines.length > 0)
+      return {
+        tone: "text-warning",
+        text: `${inReviewLines.length} ${plural(inReviewLines.length, "proposal is", "proposals are")} awaiting manager approval.`,
+      };
+    if (policy.status === "exceeds")
+      return approvalState === "approved"
+        ? { tone: "text-success", text: `All ${n} lines decided and approved. Ready to close.` }
+        : { tone: "text-danger", text: "All lines decided. Needs manager approval before it can close." };
+    return { tone: "text-success", text: `All ${n} lines decided. Ready to close.` };
+  })();
 
   const handleUndoApproval = () => {
     undoApprovalMutation.mutate(undefined, {
@@ -388,7 +475,7 @@ function DealsContent() {
           disabled={
             !managerActionsEnabled || deal.deal.approvalState !== null || approvalMutation.isPending
           }
-          onClick={() => handleApproval("rejected")}
+          onClick={() => setChangesDialogOpen(true)}
         >
           {deal.deal.approvalState === "rejected" ? "Changes Requested" : "Request Changes"}
         </Button>
@@ -546,12 +633,43 @@ function DealsContent() {
           <>
             {/* Line items */}
             <section className="space-y-4">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-base font-semibold tracking-tight">Line Items</h2>
-                <p className="text-xs text-muted-foreground">
-                  {lineItems.length} {lineItems.length === 1 ? "line" : "lines"} ·{" "}
-                  {formatMoney(dealValueTotal, region)}
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-base font-semibold tracking-tight">Line Items</h2>
+                  {lineItems.length > 0 && (
+                    <>
+                      <ProgressSegments
+                        total={lineItems.length}
+                        decided={decidedCount}
+                        inReview={inReviewLines.length}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {decidedCount} of {lineItems.length} decided
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    {lineItems.length} {lineItems.length === 1 ? "line" : "lines"} ·{" "}
+                    {formatMoney(dealValueTotal, region)}
+                  </p>
+                  {!readOnly && undecidedLines.length > 1 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={acceptingAll || decisionMutation.isPending}
+                      onClick={() => void handleAcceptAll()}
+                    >
+                      {acceptingAll ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      Accept all {undecidedLines.length} recommendations
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {lineItems.length === 0 && !addLineItemMutation.isPending ? (
@@ -678,6 +796,28 @@ function DealsContent() {
                 </div>
               </div>
 
+              {readiness && (
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <ProgressSegments
+                    total={lineItems.length}
+                    decided={decidedCount}
+                    inReview={inReviewLines.length}
+                    size="md"
+                  />
+                  <p className={`text-sm font-medium ${readiness.tone}`}>{readiness.text}</p>
+                  {readOnly && inReviewLines.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={jumpToPendingLine}
+                      className="pressable inline-flex items-center gap-1 text-sm font-medium text-foreground underline underline-offset-4 hover:opacity-70"
+                    >
+                      Jump to it
+                      <ArrowDown className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               <p className="mt-6 max-w-3xl border-t border-border pt-6 text-sm leading-relaxed text-muted-foreground">
                 {policy.note} Term: {TERM_LENGTH_LABEL[deal.deal.termLength]}.
               </p>
@@ -688,11 +828,18 @@ function DealsContent() {
                 </p>
               )}
               {deal.deal.approvalState !== null && (
-                <p className="mt-3 text-sm font-semibold text-foreground">
-                  {deal.deal.approvalState === "approved"
-                    ? "Deal approved. The rep has been notified."
-                    : "Changes requested. Sent back to the rep."}
-                </p>
+                <div className="mt-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    {deal.deal.approvalState === "approved"
+                      ? "Deal approved. The rep has been notified."
+                      : "Changes requested. Sent back to the rep."}
+                  </p>
+                  {deal.deal.approvalNote && (
+                    <blockquote className="mt-2 max-w-2xl border-l-2 border-border pl-3 text-sm leading-relaxed text-muted-foreground">
+                      &ldquo;{deal.deal.approvalNote}&rdquo;
+                    </blockquote>
+                  )}
+                </div>
               )}
             </section>
           </>
@@ -734,6 +881,56 @@ function DealsContent() {
           </div>
         </aside>
       )}
+
+      <Dialog
+        open={changesDialogOpen}
+        onOpenChange={(next) => {
+          setChangesDialogOpen(next);
+          if (!next) setChangesNote("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request changes</DialogTitle>
+            <DialogDescription>
+              Tell the rep what needs to change. Your note shows on the deal.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <label className="label-caps" htmlFor="changes-note">
+              Note to the rep
+            </label>
+            <Input
+              id="changes-note"
+              className="mt-2"
+              autoFocus
+              value={changesNote}
+              onChange={(e) => setChangesNote(e.target.value)}
+              placeholder="e.g. Bring the Services line under 20%"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && changesNote.trim() !== "" && !approvalMutation.isPending)
+                  handleApproval("rejected", changesNote.trim());
+              }}
+            />
+          </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setChangesDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={changesNote.trim() === "" || approvalMutation.isPending}
+              onClick={() => handleApproval("rejected", changesNote.trim())}
+            >
+              {approvalMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Send back to rep"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
