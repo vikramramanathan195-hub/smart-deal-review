@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useCountUp } from "@/lib/use-count-up";
 import { toast } from "sonner";
 import {
   ArrowRight,
@@ -16,7 +17,6 @@ import { PolicyGauge } from "@/components/app/policy-gauge";
 import { useSession, ROLE_LABEL } from "@/lib/session";
 import { ROLE_LOGIN_EMAIL } from "@/lib/api";
 import { useLoginMutation } from "@/lib/queries";
-import { POLICY_CEILING_PCT } from "@/lib/deal-data";
 import type { Role } from "@/lib/api-types";
 
 const ROLE_CARDS: {
@@ -39,21 +39,9 @@ const ROLE_CARDS: {
 ];
 
 const VALUE_PROPS = [
-  {
-    icon: Sparkles,
-    title: "A recommendation for every line",
-    body: "Each line item gets an AI-suggested discount with a confidence level, not a single number for the whole deal.",
-  },
-  {
-    icon: ListChecks,
-    title: "Reasoning you can inspect",
-    body: "Every recommendation breaks down into factors like baseline, tenure, deal size, and competitive pressure.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Policy checked before it ships",
-    body: `The blended discount is measured against the ${POLICY_CEILING_PCT}% ceiling as you work, so nothing goes out that needs sign-off.`,
-  },
+  { icon: Sparkles, title: "AI discount per line" },
+  { icon: ListChecks, title: "Reasoning you can inspect" },
+  { icon: ShieldCheck, title: "Policy checked as you go" },
 ];
 
 export default function SignIn() {
@@ -61,6 +49,15 @@ export default function SignIn() {
   const router = useRouter();
   const loginMutation = useLoginMutation();
   const [pendingRole, setPendingRole] = useState<Role | null>(null);
+
+  // Start at zero and settle a beat after mount so the number counts up
+  // and the gauge fills, instead of the panel arriving already finished.
+  const [demoValue, setDemoValue] = useState(0);
+  const demoShown = useCountUp(demoValue, 900);
+  useEffect(() => {
+    const t = window.setTimeout(() => setDemoValue(12.5), 350);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const submit = (role: Role) => {
     setPendingRole(role);
@@ -103,37 +100,49 @@ export default function SignIn() {
           <h1 className="text-3xl font-semibold leading-tight tracking-tight lg:text-4xl">
             Price every line item with confidence.
           </h1>
-          <p className="mt-4 max-w-md text-base leading-relaxed text-primary-foreground/75">
-            AI-recommended discounts with the reasoning behind them, checked against policy
-            before the deal goes out.
-          </p>
 
-          <ul className="mt-10 space-y-6">
-            {VALUE_PROPS.map(({ icon: Icon, title, body }) => (
-              <li key={title} className="flex gap-4">
-                <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-foreground/10 text-primary-foreground">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">{title}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-primary-foreground/70">{body}</p>
-                </div>
+          <ul className="mt-6 flex flex-wrap gap-2">
+            {VALUE_PROPS.map(({ icon: Icon, title }) => (
+              <li
+                key={title}
+                className="inline-flex items-center gap-2 rounded-full border border-primary-foreground/15 bg-primary-foreground/[0.06] px-3 py-1 text-xs font-medium text-primary-foreground/90"
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {title}
               </li>
             ))}
           </ul>
 
-          <div className="mt-10 max-w-sm rounded-xl border border-primary-foreground/15 bg-primary-foreground/[0.06] p-4 backdrop-blur">
-            <div className="flex items-baseline justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/80">
-                Blended discount
-              </p>
-              <p className="text-lg font-semibold tabular-nums">12.5%</p>
+          {/* The one thing worth looking at: a deal being checked against
+              policy, animating in so the page reads as alive, not printed. */}
+          <div className="mt-10 max-w-md rounded-xl border border-primary-foreground/15 bg-primary-foreground/[0.06] p-6 backdrop-blur">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/80">
+                  Blended discount
+                </p>
+                <p className="mt-1 text-4xl font-semibold tabular-nums tracking-tight">
+                  {demoShown.toFixed(1)}%
+                </p>
+              </div>
+              <span
+                className={`mt-1 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition-colors duration-500 ${
+                  demoValue > 0
+                    ? "bg-success text-success-foreground"
+                    : "bg-primary-foreground/10 text-primary-foreground/70"
+                }`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                {demoValue > 0 ? "Within Range" : "Checking"}
+              </span>
             </div>
-            <div className="mt-2 [&_[role=meter]]:bg-primary-foreground/15 [&_p]:text-primary-foreground/85 [&_span]:text-primary-foreground/85">
-              <PolicyGauge value={12.5} showHeadroom={false} />
+            <div className="mt-4 [&_[role=meter]]:bg-primary-foreground/15 [&_p]:text-primary-foreground/85 [&_span]:text-primary-foreground/85">
+              <PolicyGauge value={demoValue} showHeadroom={false} />
             </div>
-            <p className="mt-2 text-xs text-primary-foreground/70">
-              2.5 pts of headroom. Closes without approval.
+            <p className="mt-3 text-sm text-primary-foreground/80">
+              {demoValue > 0
+                ? "2.5 pts of headroom. Closes without approval."
+                : "Checking three lines against policy…"}
             </p>
           </div>
         </div>
