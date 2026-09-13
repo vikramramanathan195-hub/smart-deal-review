@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CategoryMultiSelect } from "@/components/app/category-multiselect";
+import { Segmented } from "@/components/ui/segmented";
 import { useCreateDealMutation } from "@/lib/queries";
 import { TERM_LENGTH_LABEL, TERM_LENGTHS } from "@/lib/deal-data";
 import { REGIONS } from "@/lib/fx-rates";
@@ -47,6 +48,19 @@ export function NewDealDialog() {
   const [termLength, setTermLength] = useState<TermLength>("12mo");
   const [region, setRegion] = useState<Region>("north_america");
   const [categories, setCategories] = useState<ProductCategory[]>(DEFAULT_CATEGORIES);
+
+  // Opened by the N shortcut on Home, or by "/?new=1" from the palette or the
+  // shortcut on another page. The query param is cleared once consumed so a
+  // refresh doesn't reopen it.
+  useEffect(() => {
+    const onOpenRequest = () => setOpen(true);
+    document.addEventListener("new-deal:open", onOpenRequest);
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
+      setOpen(true);
+      router.replace("/");
+    }
+    return () => document.removeEventListener("new-deal:open", onOpenRequest);
+  }, [router]);
 
   const resetForm = () => {
     setName("");
@@ -86,7 +100,7 @@ export function NewDealDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button>
+        <Button data-shortcut="new-deal">
           <Plus className="h-4 w-4" />
           New Deal
         </Button>
@@ -135,22 +149,20 @@ export function NewDealDialog() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label-caps" htmlFor="new-deal-term">
+              <span className="label-caps" id="new-deal-term-label">
                 Term length
-              </label>
+              </span>
               <div className="mt-2">
-                <Select value={termLength} onValueChange={(v) => setTermLength(v as TermLength)}>
-                  <SelectTrigger id="new-deal-term">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TERM_LENGTHS.map((term) => (
-                      <SelectItem key={term} value={term}>
-                        {TERM_LENGTH_LABEL[term]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Segmented
+                  aria-labelledby="new-deal-term-label"
+                  value={termLength}
+                  onChange={setTermLength}
+                  options={TERM_LENGTHS.map((term) => ({
+                    value: term,
+                    label: TERM_LENGTH_LABEL[term].replace(" months", " mo"),
+                  }))}
+                  className="w-full"
+                />
               </div>
             </div>
 

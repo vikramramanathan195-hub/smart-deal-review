@@ -3,7 +3,18 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Activity, FileText, LayoutGrid, LogOut, Moon, Sun } from "lucide-react";
+import {
+  Activity,
+  FileText,
+  Keyboard,
+  LayoutGrid,
+  LogOut,
+  Moon,
+  Plus,
+  Repeat,
+  Sun,
+} from "lucide-react";
+import { ROLE_LABEL } from "@/lib/session";
 import {
   CommandDialog,
   CommandEmpty,
@@ -25,7 +36,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
-  const { isSignedIn, signOut } = useSession();
+  const { isSignedIn, signOut, role } = useSession();
   const dealsQuery = useDealsQuery();
 
   useEffect(() => {
@@ -93,6 +104,22 @@ export function CommandPalette() {
 
         <CommandSeparator />
         <CommandGroup heading="Actions">
+          {role === "sales_rep" && (
+            <CommandItem onSelect={() => go("/?new=1")}>
+              <Plus />
+              New deal
+              <CommandShortcut>N</CommandShortcut>
+            </CommandItem>
+          )}
+          <CommandItem
+            onSelect={() => {
+              setOpen(false);
+              document.dispatchEvent(new CustomEvent("role:switch"));
+            }}
+          >
+            <Repeat />
+            Switch to {ROLE_LABEL[role === "manager" ? "sales_rep" : "manager"]}
+          </CommandItem>
           <CommandItem
             onSelect={() => {
               setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -101,6 +128,17 @@ export function CommandPalette() {
           >
             {resolvedTheme === "dark" ? <Sun /> : <Moon />}
             {resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            <CommandShortcut>T</CommandShortcut>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              setOpen(false);
+              document.dispatchEvent(new CustomEvent("shortcuts:open"));
+            }}
+          >
+            <Keyboard />
+            Keyboard shortcuts
+            <CommandShortcut>?</CommandShortcut>
           </CommandItem>
           <CommandItem
             onSelect={() => {
@@ -114,6 +152,20 @@ export function CommandPalette() {
           </CommandItem>
         </CommandGroup>
       </CommandList>
+      <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-xs text-muted-foreground">
+        <span>
+          <kbd className="font-sans font-semibold text-foreground">↑↓</kbd> navigate
+        </span>
+        <span>
+          <kbd className="font-sans font-semibold text-foreground">↵</kbd> select
+        </span>
+        <span>
+          <kbd className="font-sans font-semibold text-foreground">esc</kbd> close
+        </span>
+        <span className="ml-auto">
+          <kbd className="font-sans font-semibold text-foreground">?</kbd> all shortcuts
+        </span>
+      </div>
     </CommandDialog>
   );
 }

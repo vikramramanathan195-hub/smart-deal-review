@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { InitialsAvatar } from "@/components/app/initials-avatar";
 import { formatMoney, pct, POLICY_CEILING_PCT } from "@/lib/deal-data";
 import type {
@@ -105,7 +106,7 @@ function appliedConfidence(
   };
 }
 
-function formatWhen(iso: string): string {
+export function formatWhen(iso: string): string {
   try {
     return new Date(iso).toLocaleString(undefined, {
       month: "short",
@@ -118,7 +119,7 @@ function formatWhen(iso: string): string {
   }
 }
 
-const HISTORY_ACTION_LABEL: Record<string, string> = {
+export const HISTORY_ACTION_LABEL: Record<string, string> = {
   accepted: "Accepted AI recommendation",
   proposed_auto_applied: "Proposed (auto-applied)",
   proposed_pending_approval: "Proposed (sent for approval)",
@@ -165,13 +166,51 @@ function PanelCard({ children }: { children: React.ReactNode }) {
   return <div className="rounded-lg border border-border bg-card p-6 shadow-card">{children}</div>;
 }
 
+/** Plain-language meaning of each factor, keyed by how its name starts so
+ * the same explanation covers "Customer tenure (4 yrs)" and "(7 yrs)".
+ * Thresholds quoted here mirror generate_recommendation in the backend. */
+const FACTOR_EXPLANATIONS: [RegExp, string][] = [
+  [/^Baseline/, "The starting discount for this customer segment, before anything specific to this deal is taken into account."],
+  [/^Customer tenure/, "Longer relationships earn a little more room. Scales with how many years the customer has been a partner."],
+  [/^Deal size tier/, "Bigger line values unlock a higher discount tier. The tiers step up at 50k, 100k, and 250k."],
+  [/^Regional competitive pressure/, "How aggressively competitors price in this customer's region. More pressure means more room is needed to win."],
+  [/^Competitive displacement/, "Extra room when the deal replaces an incumbent vendor, since switching costs work against us."],
+  [/^Multi-year term/, "A longer commitment trades a deeper discount now for revenue that is locked in."],
+  [/^Multi-region rollout/, "Delivering across several regions at once adds coordination risk, which the price reflects."],
+  [/^Renewal loyalty/, "A credit for renewing rather than putting the business back out to bid."],
+  [/^Margin floor/, "Pulls the total back so the line stays above the minimum acceptable margin. Always negative."],
+];
+
+function explainFactor(name: string): string {
+  return (
+    FACTOR_EXPLANATIONS.find(([pattern]) => pattern.test(name))?.[1] ??
+    "One of the inputs the model weighs when pricing this line."
+  );
+}
+
 function FactorRow({ factor, max }: { factor: Factor; max: number }) {
   const negative = !factor.positive;
   const width = Math.max(4, (Math.abs(factor.contributionPct) / max) * 100);
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm text-foreground">{factor.name}</span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="pressable rounded-sm text-left text-sm text-foreground underline decoration-border decoration-dotted underline-offset-4 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {factor.name}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            aria-label={`About ${factor.name}`}
+            className="w-72 p-4 text-sm leading-relaxed"
+          >
+            {explainFactor(factor.name)}
+          </PopoverContent>
+        </Popover>
         <span
           className={`text-sm font-semibold tabular-nums ${negative ? "text-danger" : "text-success"}`}
         >
@@ -497,6 +536,12 @@ export function AiPanel({
                           onChange={(e) => handleDraftChange(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && canSubmit) void handleSubmit();
+                            if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+                            e.preventDefault();
+                            const step = (e.shiftKey ? 1 : 0.5) * (e.key === "ArrowUp" ? 1 : -1);
+                            const base = draftNumber ?? recommendation.recommendedPct;
+                            const next = Math.min(100, Math.max(0, Math.round((base + step) * 10) / 10));
+                            setDraft(String(next));
                           }}
                         />
                         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">

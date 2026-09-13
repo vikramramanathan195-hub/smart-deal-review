@@ -33,6 +33,7 @@ import { useCountUp } from "@/lib/use-count-up";
 import { NewDealDialog } from "@/components/app/new-deal-dialog";
 import { PolicyGauge } from "@/components/app/policy-gauge";
 import { ProgressSegments } from "@/components/app/progress-segments";
+import { Segmented } from "@/components/ui/segmented";
 import { InitialsAvatar } from "@/components/app/initials-avatar";
 import type { DealSummary } from "@/lib/api-types";
 
@@ -42,6 +43,18 @@ const SORT_LABEL: Record<SortKey, string> = {
   value: "Total value",
   discount: "Blended discount",
 };
+
+type DealFilter = "all" | "attention" | "exceeds" | "within";
+
+// "needs_approval" reflects the blended discount vs. the ceiling and never
+// flips back on its own; approvalState is the record of whether a manager
+// acted. A deal is on the manager's plate only while no decision exists yet.
+const needsApprovalPred = (d: DealSummary) =>
+  d.status === "needs_approval" && d.approvalState == null;
+// On the rep's plate while any line is undecided or a manager sent it back;
+// lines sitting with a manager don't count.
+const waitingOnRepPred = (d: DealSummary) =>
+  d.lineItemCount - d.decidedLineCount - d.inReviewLineCount > 0 || d.approvalState === "rejected";
 
 function errorMessage(error: unknown): string {
   return error instanceof ApiError || error instanceof Error
@@ -64,22 +77,32 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [filter, setFilter] = useState<DealFilter>("all");
+  const attentionPred = role === "manager" ? needsApprovalPred : waitingOnRepPred;
 
   const deals = useMemo(() => {
     const data = dealsQuery.data ?? [];
     const q = query.trim().toLowerCase();
-    const filtered = q
+    const searched = q
       ? data.filter(
           (d) => d.name.toLowerCase().includes(q) || d.customerName.toLowerCase().includes(q),
         )
       : data;
+    const filtered =
+      filter === "all"
+        ? searched
+        : searched.filter((d) =>
+            filter === "attention"
+              ? attentionPred(d)
+              : policyStatus(d.blendedDiscountPct).status === filter,
+          );
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
       if (sortKey === "value") return (toUsd(a.dealValueTotal, a.region) - toUsd(b.dealValueTotal, b.region)) * dir;
       return (a.blendedDiscountPct - b.blendedDiscountPct) * dir;
     });
-  }, [dealsQuery.data, query, sortKey, sortDir]);
+  }, [dealsQuery.data, query, sortKey, sortDir, filter, attentionPred]);
 
   const stats = useMemo(() => {
     const data = dealsQuery.data ?? [];
@@ -91,18 +114,16 @@ export default function Home() {
     // record of whether a manager has already acted. A deal only belongs in
     // the queue while no decision has been recorded yet; once approved or
     // rejected, it's off the manager's plate (rejected goes back to the rep).
-    const needsApproval = data.filter(
-      (d) => d.status === "needs_approval" && d.approvalState == null,
-    );
-    // A deal is on the rep's plate while any line is undecided or a manager
-    // has sent it back; lines sitting with a manager don't count.
-    const waitingOnRep = data.filter(
-      (d) =>
-        d.lineItemCount - d.decidedLineCount - d.inReviewLineCount > 0 ||
-        d.approvalState === "rejected",
-    );
-    return { totalUsd, avgDiscount, needsApproval, waitingOnRep };
-  }, [dealsQuery.data]);
+    const needsApproval = data.filter(needsApprovalPred);
+    const waitingOnRep = data.filter(waitingOnRepPred);
+    const counts = {
+      all: data.length,
+      attention: (role === "manager" ? needsApproval : waitingOnRep).length,
+      exceeds: data.filter((d) => policyStatus(d.blendedDiscountPct).status === "exceeds").length,
+      within: data.filter((d) => policyStatus(d.blendedDiscountPct).status === "within").length,
+    };
+    return { totalUsd, avgDiscount, needsApproval, waitingOnRep, counts };
+  }, [dealsQuery.data, role]);
 
   const attention = stats
     ? role === "manager"
@@ -185,6 +206,26 @@ export default function Home() {
 
           {!dealsQuery.isPending && !dealsQuery.isError && (dealsQuery.data.length > 0) && (
             <div className="flex flex-wrap items-center gap-2">
+              <Segmented
+                aria-label="Filter deals"
+                value={filter}
+                onChange={setFilter}
+                options={[
+                  { value: "all", label: <FilterLabel text="All" count={stats?.counts.all} /> },
+                  {
+                    value: "attention",
+                    label: (
+                      <FilterLabel
+                        text={role === "manager" ? "Needs approval" : "Waiting on you"}
+                        count={stats?.counts.attention}
+                      />
+                    ),
+                  },
+                  { value: "exceeds", label: <FilterLabel text="Exceeds" count={stats?.counts.exceeds} /> },
+                  { value: "within", label: <FilterLabel text="Within" count={stats?.counts.within} /> },
+                ]}
+                className="mr-2"
+              />
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -192,6 +233,7 @@ export default function Home() {
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search deals or customers…"
                   aria-label="Search deals by name or customer"
+                  data-shortcut="search"
                   className="h-8 w-64 pl-8 pr-8 text-sm sm:w-72"
                 />
                 {query && (
@@ -251,13 +293,18 @@ export default function Home() {
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <Search className="h-4 w-4" />
             </span>
-            <p className="text-sm font-medium">No deals match &ldquo;{query}&rdquo;</p>
+            <p className="text-sm font-medium">
+              {query ? <>No deals match &ldquo;{query}&rdquo;</> : "Nothing in this view right now."}
+            </p>
             <button
               type="button"
-              onClick={() => setQuery("")}
+              onClick={() => {
+                setQuery("");
+                setFilter("all");
+              }}
               className="pressable text-sm font-medium text-foreground underline underline-offset-4 hover:opacity-70"
             >
-              Clear search
+              Show all deals
             </button>
           </div>
         ) : (
@@ -387,6 +434,17 @@ function DealCard({ deal }: { deal: DealSummary }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+function FilterLabel({ text, count }: { text: string; count?: number }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      {text}
+      {count !== undefined && (
+        <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
+      )}
+    </span>
   );
 }
 

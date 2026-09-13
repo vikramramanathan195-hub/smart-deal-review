@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 
 export function LogoMark({ size = 32 }: { size?: number }) {
@@ -20,8 +20,19 @@ export function LogoMark({ size = 32 }: { size?: number }) {
 
 export function TopNav({ right }: { right?: ReactNode }) {
   const pathname = usePathname();
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
+    <header
+      className={`sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur transition-shadow duration-200 ${
+        scrolled ? "shadow-card" : ""
+      }`}
+    >
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-6">
         <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
           <LogoMark />

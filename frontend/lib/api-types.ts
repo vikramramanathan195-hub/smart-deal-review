@@ -101,6 +101,7 @@ export type DealSummary = {
 };
 
 export type DealUpdateBody = {
+  name?: string;
   region?: Region;
   productCategories?: ProductCategory[];
   termLength?: TermLength;

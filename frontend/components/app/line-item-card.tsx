@@ -253,6 +253,14 @@ export function LineItemCard({
                   aria-invalid={!!valueError}
                   value={formatDigits(valueDraft)}
                   onChange={handleValueChange}
+                  onKeyDown={(e) => {
+                    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+                    e.preventDefault();
+                    const step = (e.shiftKey ? 10000 : 1000) * (e.key === "ArrowUp" ? 1 : -1);
+                    const next = Math.max(0, (Number(valueDraft) || 0) + step);
+                    setValueDraft(String(next));
+                    if (next > 0) schedulePatch({ productCategory: categoryDraft, dealValue: next });
+                  }}
                   placeholder="0"
                 />
               </div>

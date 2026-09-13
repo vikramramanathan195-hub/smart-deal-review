@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, LogOut, Repeat } from "lucide-react";
 import { toast } from "sonner";
@@ -52,6 +53,12 @@ export function AccountMenu() {
       },
     );
   };
+
+  useEffect(() => {
+    const onSwitchRequest = () => handleSwitchRole();
+    document.addEventListener("role:switch", onSwitchRequest);
+    return () => document.removeEventListener("role:switch", onSwitchRequest);
+  });
 
   const handleSignOut = () => {
     signOut();

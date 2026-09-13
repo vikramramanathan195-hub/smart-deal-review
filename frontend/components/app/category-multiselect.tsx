@@ -63,36 +63,36 @@ export function CategoryMultiSelect({
                 <ChevronsUpDown className="h-3 w-3" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-56">
-              <ul role="listbox" aria-multiselectable="true" className="flex flex-col gap-1">
+            <PopoverContent className="w-56" aria-label="Edit product categories">
+              <div role="group" aria-label="Product categories" className="flex flex-col gap-1">
                 {PRODUCT_CATEGORIES.map((category) => {
                   const selected = value.includes(category);
                   return (
-                    <li key={category}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={selected}
-                        onClick={() => toggle(category)}
+                    <button
+                      key={category}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={selected}
+                      onClick={() => toggle(category)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm pressable hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        selected && "font-medium",
+                      )}
+                    >
+                      <span
+                        aria-hidden="true"
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm pressable hover:bg-accent hover:text-accent-foreground",
-                          selected && "font-medium",
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-input",
+                          selected && "border-primary bg-primary text-primary-foreground",
                         )}
                       >
-                        <span
-                          className={cn(
-                            "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-input",
-                            selected && "border-primary bg-primary text-primary-foreground",
-                          )}
-                        >
-                          {selected && <Check className="h-3 w-3" />}
-                        </span>
-                        {category}
-                      </button>
-                    </li>
+                        {selected && <Check className="h-3 w-3" />}
+                      </span>
+                      {category}
+                    </button>
                   );
                 })}
-              </ul>
+              </div>
             </PopoverContent>
           </Popover>
         )}

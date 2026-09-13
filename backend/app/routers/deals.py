@@ -93,6 +93,14 @@ def get_deal(deal_id: str, _user=Depends(get_current_user)) -> DealDetail:
 @router.patch("/{deal_id}", response_model=DealDetail)
 def update_deal(deal_id: str, body: DealUpdate, _user=Depends(get_current_user)) -> DealDetail:
     state = _get_state_or_404(deal_id)
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A deal needs a name.",
+            )
+        state.deal.name = name
     if body.region is not None:
         # Region drives currency on the frontend. Changing it never converts
         # existing line item values — they're just reinterpreted in the new

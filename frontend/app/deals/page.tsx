@@ -3,7 +3,17 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowDown, Check, Plus, PackageOpen, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowDown,
+  Check,
+  ChevronDown,
+  Pencil,
+  Plus,
+  PackageOpen,
+  Loader2,
+} from "lucide-react";
+import { Segmented } from "@/components/ui/segmented";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +31,7 @@ import { LineItemCard } from "@/components/app/line-item-card";
 import { CategoryMultiSelect } from "@/components/app/category-multiselect";
 import { SaveStateIndicator, type SaveState } from "@/components/app/save-state";
 import { PolicyGauge } from "@/components/app/policy-gauge";
-import { AiPanelSkeleton } from "@/components/app/ai-panel";
+import { AiPanelSkeleton, HISTORY_ACTION_LABEL, formatWhen } from "@/components/app/ai-panel";
 import { useSession } from "@/lib/session";
 import {
   currency,
@@ -113,6 +123,10 @@ function DealsContent() {
   const [acceptingAll, setAcceptingAll] = useState(false);
   const [changesDialogOpen, setChangesDialogOpen] = useState(false);
   const [changesNote, setChangesNote] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameSaveState, setNameSaveState] = useState<SaveState>("idle");
+  const [activityOpen, setActivityOpen] = useState(false);
   const removeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const UNDO_WINDOW_MS = 6000;
 
@@ -339,6 +353,18 @@ function DealsContent() {
   const inReviewLines = lineItems.filter((li) => li.lineItem.lineApprovalState === "pending_approval");
   const decidedCount = lineItems.length - undecidedLines.length - inReviewLines.length;
 
+  // Every decision on every line, newest first, so a manager can read what
+  // happened on a deal without opening each line's own history.
+  const activity = lineItems
+    .flatMap((li, i) =>
+      li.lineItem.history.map((h) => ({
+        ...h,
+        line: i + 1,
+        category: li.lineItem.productCategory,
+      })),
+    )
+    .sort((a, b) => b.at.localeCompare(a.at));
+
   const handleAcceptAll = async () => {
     const targets = undecidedLines;
     setAcceptingAll(true);
@@ -426,6 +452,23 @@ function DealsContent() {
         onError: (error) => {
           setRegionSaveState("idle");
           toast.error("Couldn't update region", { description: errorMessage(error) });
+        },
+      },
+    );
+  };
+
+  const commitName = () => {
+    const next = nameDraft.trim();
+    setEditingName(false);
+    if (!deal || next === "" || next === deal.deal.name) return;
+    setNameSaveState("saving");
+    updateDealMutation.mutate(
+      { name: next },
+      {
+        onSuccess: () => flashSaved(setNameSaveState),
+        onError: (error) => {
+          setNameSaveState("idle");
+          toast.error("Couldn't rename the deal", { description: errorMessage(error) });
         },
       },
     );
@@ -548,14 +591,58 @@ function DealsContent() {
           ) : deal ? (
             <div className="grid gap-6 lg:grid-cols-4">
               <div>
-                <label className="label-caps">Deal name</label>
-                <h1 className="mt-2 text-sm font-medium">{deal.deal.name}</h1>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="label-caps" id="deal-name-label">
+                    Deal name
+                  </span>
+                  <SaveStateIndicator state={nameSaveState} />
+                </div>
+                {readOnly ? (
+                  <h1 className="mt-2 text-sm font-medium">{deal.deal.name}</h1>
+                ) : editingName ? (
+                  <Input
+                    id="deal-name"
+                    aria-labelledby="deal-name-label"
+                    autoFocus
+                    className="mt-2 font-medium"
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onBlur={commitName}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitName();
+                      if (e.key === "Escape") {
+                        setNameDraft(deal.deal.name);
+                        setEditingName(false);
+                      }
+                    }}
+                  />
+                ) : (
+                  <h1 className="mt-2 text-sm font-medium">
+                    <button
+                      type="button"
+                      id="deal-name"
+                      onClick={() => {
+                        setNameDraft(deal.deal.name);
+                        setEditingName(true);
+                      }}
+                      aria-label={`Rename ${deal.deal.name}`}
+                      title="Rename deal"
+                      className="pressable group -mx-2 flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="truncate">{deal.deal.name}</span>
+                      <Pencil
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                      />
+                    </button>
+                  </h1>
+                )}
               </div>
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <label className="label-caps" htmlFor="deal-term">
+                  <span className="label-caps" id="deal-term-label">
                     Term length
-                  </label>
+                  </span>
                   <SaveStateIndicator state={termSaveState} />
                 </div>
                 <div className="mt-2">
@@ -564,18 +651,17 @@ function DealsContent() {
                       {TERM_LENGTH_LABEL[deal.deal.termLength]}
                     </p>
                   ) : (
-                    <Select value={deal.deal.termLength} onValueChange={handleTermChange}>
-                      <SelectTrigger id="deal-term" disabled={updateDealMutation.isPending}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TERM_LENGTHS.map((term) => (
-                          <SelectItem key={term} value={term}>
-                            {TERM_LENGTH_LABEL[term]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Segmented
+                      aria-labelledby="deal-term-label"
+                      value={deal.deal.termLength}
+                      onChange={handleTermChange}
+                      disabled={updateDealMutation.isPending}
+                      options={TERM_LENGTHS.map((term) => ({
+                        value: term,
+                        label: TERM_LENGTH_LABEL[term].replace(" months", " mo"),
+                      }))}
+                      className="w-full"
+                    />
                   )}
                 </div>
               </div>
@@ -841,6 +927,47 @@ function DealsContent() {
                   )}
                 </div>
               )}
+
+              {activity.length > 0 && (
+                <div className="mt-6 border-t border-border pt-6">
+                  <button
+                    type="button"
+                    onClick={() => setActivityOpen((o) => !o)}
+                    aria-expanded={activityOpen}
+                    className="pressable inline-flex items-center gap-2 rounded-md text-sm font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 text-muted-foreground transition-transform ${activityOpen ? "rotate-180" : ""}`}
+                    />
+                    Activity
+                    <span className="text-xs text-muted-foreground tabular-nums">{activity.length}</span>
+                  </button>
+                  {activityOpen && (
+                    <ol className="mt-4 space-y-3">
+                      {activity.map((h, i) => (
+                        <li key={`${h.at}-${i}`} className="flex gap-4 text-sm">
+                          <span className="w-24 shrink-0 text-xs text-muted-foreground tabular-nums">
+                            {formatWhen(h.at)}
+                          </span>
+                          <span className="min-w-0 leading-relaxed">
+                            <span className="font-medium">{HISTORY_ACTION_LABEL[h.action] ?? h.action}</span>
+                            <span className="text-muted-foreground">
+                              {" "}
+                              on line {h.line} ({h.category}) ·{" "}
+                              <span className="tabular-nums">
+                                {h.previousPct === null ? "none" : `${h.previousPct}%`} →{" "}
+                                {h.newPct === null ? "none" : `${h.newPct}%`}
+                              </span>{" "}
+                              · {h.by}
+                              {h.reason ? <> · &ldquo;{h.reason}&rdquo;</> : null}
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              )}
             </section>
           </>
         )}
@@ -853,6 +980,10 @@ function DealsContent() {
         >
           <div className="surface-card mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-x-8 gap-y-3 border-border/80 bg-card/95 px-6 py-4 shadow-lift backdrop-blur">
             <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+              <div className="hidden min-w-0 max-w-[240px] lg:block">
+                <p className="label-caps">Deal</p>
+                <p className="truncate text-sm font-semibold leading-tight">{deal.deal.name}</p>
+              </div>
               <div className="hidden shrink-0 sm:block">
                 <p className="label-caps">Total deal value</p>
                 <p className="text-lg font-semibold tabular-nums leading-tight">

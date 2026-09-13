@@ -134,6 +134,7 @@ class DealCreate(CamelModel):
 
 
 class DealUpdate(CamelModel):
+    name: str | None = Field(default=None, min_length=1)
     region: Region | None = None
     product_categories: list[ProductCategory] | None = None
     term_length: TermLength | None = None

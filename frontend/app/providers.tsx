@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import { SessionProvider } from "@/lib/session";
 import { Toaster } from "@/components/ui/sonner";
 import { CommandPalette } from "@/components/app/command-palette";
+import { KeyboardShortcuts } from "@/components/app/keyboard-shortcuts";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -17,6 +18,7 @@ export function Providers({ children }: { children: ReactNode }) {
           {children}
           <Toaster />
           <CommandPalette />
+          <KeyboardShortcuts />
         </SessionProvider>
       </QueryClientProvider>
     </ThemeProvider>
