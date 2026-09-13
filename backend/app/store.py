@@ -378,6 +378,20 @@ class DataStore:
         state.deal.approval_state, state.deal.approval_note = state.approval_history.pop()
         return state
 
+    def send_quote(self, deal_id: str, recipient: str) -> DealState:
+        state = self.get_deal_state(deal_id)
+        state.deal.quote_sent_at = datetime.now(timezone.utc).isoformat()
+        state.deal.quote_sent_to = recipient
+        return state
+
+    def undo_send_quote(self, deal_id: str) -> DealState:
+        state = self.get_deal_state(deal_id)
+        if state.deal.quote_sent_at is None:
+            raise NotFoundError(f"Deal '{deal_id}' has not been sent")
+        state.deal.quote_sent_at = None
+        state.deal.quote_sent_to = None
+        return state
+
     def line_progress(self, state: DealState) -> tuple[int, int]:
         """(decided, in_review): a line counts as decided once the rep has
         accepted or adjusted it and nothing is awaiting a manager; a rejected

@@ -104,7 +104,17 @@ class Deal(CamelModel):
     # What the manager said when approving or sending the deal back, so the
     # rep sees the reason on the deal rather than a bare "changes requested".
     approval_note: str | None = None
+    # Set once the quote has gone to the customer. Sending is simulated (no
+    # mail leaves this app) but the state is real: it closes the workflow.
+    quote_sent_at: str | None = None
+    quote_sent_to: str | None = None
     region: Region = "north_america"
+
+
+class SendQuoteRequest(CamelModel):
+    recipient: str = Field(min_length=3)
+    subject: str = Field(min_length=1)
+    message: str | None = None
 
 
 class DealSummary(CamelModel):
@@ -121,6 +131,7 @@ class DealSummary(CamelModel):
     # dashboard can say how far along a deal is without opening it.
     decided_line_count: int
     in_review_line_count: int
+    quote_sent_at: str | None = None
     term_length: TermLength
     product_categories: list[ProductCategory]
 

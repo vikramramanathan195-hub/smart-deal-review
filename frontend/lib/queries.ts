@@ -9,6 +9,7 @@ import type {
   LineItemDecisionBody,
   LineItemUpdateBody,
   Role,
+  SendQuoteBody,
 } from "@/lib/api-types";
 import { useSession } from "@/lib/session";
 
@@ -143,6 +144,30 @@ export function useUndoApprovalMutation(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => api.undoApproval(token!, dealId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealKeys.detail(dealId) });
+      queryClient.invalidateQueries({ queryKey: dealKeys.all });
+    },
+  });
+}
+
+export function useSendQuoteMutation(dealId: string) {
+  const { token } = useSession();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SendQuoteBody) => api.sendQuote(token!, dealId, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealKeys.detail(dealId) });
+      queryClient.invalidateQueries({ queryKey: dealKeys.all });
+    },
+  });
+}
+
+export function useUndoSendQuoteMutation(dealId: string) {
+  const { token } = useSession();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.undoSendQuote(token!, dealId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealKeys.detail(dealId) });
       queryClient.invalidateQueries({ queryKey: dealKeys.all });

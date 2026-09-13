@@ -17,6 +17,10 @@ import {
 import { Segmented } from "@/components/ui/segmented";
 import { QuoteSheet } from "@/components/app/quote-sheet";
 import { IntroStrip } from "@/components/app/intro-strip";
+import { DealStepper } from "@/components/app/deal-stepper";
+import { SendQuoteDialog } from "@/components/app/send-quote-dialog";
+import { PasteLinesDialog, type ParsedLine } from "@/components/app/paste-lines-dialog";
+import { composeDealSummary, roomUnderCeiling } from "@/lib/deal-summary";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +51,13 @@ import {
   TERM_LENGTHS,
 } from "@/lib/deal-data";
 import { formatFxAsOf, REGIONS, toUsd } from "@/lib/fx-rates";
-import type { LineItemDetail, ProductCategory, Region, TermLength } from "@/lib/api-types";
+import type {
+  LineItemDetail,
+  ProductCategory,
+  Region,
+  SendQuoteBody,
+  TermLength,
+} from "@/lib/api-types";
 import {
   Select,
   SelectContent,
@@ -63,6 +73,8 @@ import {
   useDecisionMutation,
   useLineItemApprovalMutation,
   useUndoLineItemDecisionMutation,
+  useSendQuoteMutation,
+  useUndoSendQuoteMutation,
   useRemoveLineItemMutation,
   useUndoApprovalMutation,
   useUpdateDealMutation,
@@ -154,6 +166,9 @@ function DealsContent() {
   const approvalMutation = useApprovalMutation(currentDealId);
   const undoApprovalMutation = useUndoApprovalMutation(currentDealId);
   const updateDealMutation = useUpdateDealMutation(currentDealId);
+  const sendQuoteMutation = useSendQuoteMutation(currentDealId);
+  const undoSendMutation = useUndoSendQuoteMutation(currentDealId);
+  const [importingLines, setImportingLines] = useState(false);
 
   const rawDealValueTotal = (dealQuery.data?.lineItems ?? [])
     .filter((li) => !removedIds.has(li.lineItem.id))
@@ -238,6 +253,46 @@ function DealsContent() {
     addLineItemMutation.mutate(body, {
       onError: (error) =>
         toast.error("Couldn't add line item", { description: errorMessage(error) }),
+    });
+  };
+
+  // Lines land one at a time with a short gap so each card and its
+  // recommendation visibly arrive, instead of the whole list popping in.
+  const handleImportLines = async (rows: ParsedLine[]) => {
+    setImportingLines(true);
+    try {
+      for (const row of rows) {
+        await addLineItemMutation.mutateAsync(row);
+        await new Promise((resolve) => setTimeout(resolve, 140));
+      }
+      toast.success(`Added ${rows.length} ${rows.length === 1 ? "line" : "lines"}`, {
+        description: "Each one has its AI recommendation ready.",
+      });
+    } catch (error) {
+      toast.error("Couldn't add every line", { description: errorMessage(error) });
+      throw error;
+    } finally {
+      setImportingLines(false);
+    }
+  };
+
+  const handleSendQuote = async (body: SendQuoteBody) => {
+    try {
+      await sendQuoteMutation.mutateAsync(body);
+      toast.success(`Quote sent to ${body.recipient}`, {
+        description: "Sending is simulated here. The deal is now marked as sent.",
+      });
+    } catch (error) {
+      toast.error("Couldn't send the quote", { description: errorMessage(error) });
+      throw error;
+    }
+  };
+
+  const handleUndoSend = () => {
+    undoSendMutation.mutate(undefined, {
+      onSuccess: () => toast.success("Marked as not sent"),
+      onError: (error) =>
+        toast.error("Couldn't undo the send", { description: errorMessage(error) }),
     });
   };
 
@@ -411,9 +466,25 @@ function DealsContent() {
 
   // The one sentence a rep or manager actually wants from the summary: am I
   // done, and if not, what is the next move.
+  const sentAt = deal?.deal.quoteSentAt ?? null;
+  const summaryText = deal ? composeDealSummary(deal, lineItems, blended) : "";
+  const room = roomUnderCeiling(lineItems);
+  const canSend =
+    !readOnly &&
+    !sentAt &&
+    lineItems.length > 0 &&
+    undecidedLines.length === 0 &&
+    inReviewLines.length === 0 &&
+    (policy.status === "within" || approvalState === "approved");
+
   const readiness = (() => {
     const n = lineItems.length;
     if (n === 0) return null;
+    if (sentAt)
+      return {
+        tone: "text-success",
+        text: `Quote sent to ${deal?.deal.quoteSentTo ?? "the customer"} on ${new Date(sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.`,
+      };
     const plural = (count: number, one: string, many: string) => (count === 1 ? one : many);
     if (readOnly) {
       if (inReviewLines.length > 0)
@@ -601,6 +672,18 @@ function DealsContent() {
             </Select>
           </div>
 
+          {deal && (
+            <DealStepper
+              className="mb-6 border-b border-border pb-6"
+              hasLines={lineItems.length > 0}
+              allDecided={undecidedLines.length === 0}
+              inReview={inReviewLines.length}
+              exceeds={policy.status === "exceeds"}
+              approvalState={approvalState}
+              sent={!!sentAt}
+            />
+          )}
+
           {dealQuery.isPending ? (
             <p className="text-sm text-muted-foreground">Loading deal…</p>
           ) : dealQuery.isError ? (
@@ -761,6 +844,14 @@ function DealsContent() {
                     {lineItems.length} {lineItems.length === 1 ? "line" : "lines"} ·{" "}
                     {formatMoney(dealValueTotal, region)}
                   </p>
+                  {!readOnly && (
+                    <PasteLinesDialog
+                      onImport={handleImportLines}
+                      importing={importingLines}
+                      size="sm"
+                      variant="ghost"
+                    />
+                  )}
                   {!readOnly && undecidedLines.length > 1 && (
                     <Button
                       size="sm"
@@ -792,9 +883,12 @@ function DealsContent() {
                     history.
                   </p>
                   {!readOnly && (
-                    <Button className="mt-6" onClick={handleAddLineItem}>
-                      <Plus className="mr-2 h-4 w-4" /> Add Line Item
-                    </Button>
+                    <div className="mt-6 flex flex-wrap justify-center gap-2">
+                      <Button onClick={handleAddLineItem}>
+                        <Plus className="h-4 w-4" /> Add Line Item
+                      </Button>
+                      <PasteLinesDialog onImport={handleImportLines} importing={importingLines} />
+                    </div>
                   )}
                 </div>
               ) : (
@@ -890,6 +984,26 @@ function DealsContent() {
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">Weighted across all lines</p>
                     <PolicyGauge value={blended} className="mt-3 max-w-md" />
+                    {lineItems.length > 0 && (
+                      <p className="mt-2 max-w-md text-xs text-muted-foreground">
+                        {room >= 0 ? (
+                          <>
+                            Room to negotiate:{" "}
+                            <span className="font-semibold text-foreground tabular-nums">
+                              {formatMoney(room, region)}
+                            </span>{" "}
+                            more discount before manager approval is needed.
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-semibold text-danger tabular-nums">
+                              {formatMoney(-room, region)}
+                            </span>{" "}
+                            of discount sits above the ceiling.
+                          </>
+                        )}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -901,10 +1015,35 @@ function DealsContent() {
                     {dealBadge.label}
                   </span>
                   {managerActions}
-                  <Button variant="ghost" size="sm" onClick={() => window.print()}>
-                    <Printer className="h-4 w-4" />
-                    Print quote
-                  </Button>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {!readOnly && !sentAt && (
+                      <SendQuoteDialog
+                        deal={deal}
+                        lineItems={lineItems}
+                        blended={blended}
+                        region={region}
+                        summary={summaryText}
+                        canSend={canSend}
+                        blockedReason={readiness?.text ?? null}
+                        sending={sendQuoteMutation.isPending}
+                        onSend={handleSendQuote}
+                      />
+                    )}
+                    {!readOnly && sentAt && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={undoSendMutation.isPending}
+                        onClick={handleUndoSend}
+                      >
+                        Undo send
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => window.print()}>
+                      <Printer className="h-4 w-4" />
+                      Print quote
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -927,6 +1066,29 @@ function DealsContent() {
                       <ArrowDown className="h-4 w-4" />
                     </button>
                   )}
+                </div>
+              )}
+
+              {lineItems.length > 0 && (
+                <div className="mt-6 max-w-3xl rounded-lg bg-secondary/60 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="label-caps">Deal summary</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(summaryText);
+                        toast.success("Summary copied");
+                      }}
+                      className="pressable text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed">{summaryText}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Drafted from the deal&apos;s own numbers. Paste it into an approval note or the
+                    quote email.
+                  </p>
                 </div>
               )}
 

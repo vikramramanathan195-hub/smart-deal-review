@@ -81,7 +81,15 @@ export type Deal = {
   status: DealStatus;
   approvalState: ApprovalState;
   approvalNote: string | null;
+  quoteSentAt: string | null;
+  quoteSentTo: string | null;
   region: Region;
+};
+
+export type SendQuoteBody = {
+  recipient: string;
+  subject: string;
+  message?: string;
 };
 
 export type DealSummary = {
@@ -96,6 +104,7 @@ export type DealSummary = {
   lineItemCount: number;
   decidedLineCount: number;
   inReviewLineCount: number;
+  quoteSentAt: string | null;
   termLength: TermLength;
   productCategories: ProductCategory[];
 };

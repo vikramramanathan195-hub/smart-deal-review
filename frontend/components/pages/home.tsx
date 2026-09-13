@@ -355,8 +355,9 @@ function DealCard({ deal }: { deal: DealSummary }) {
   // doesn't retroactively bring the discount back in range. So a resolved
   // deal gets its own badge layered on top, rather than the policy badge
   // silently disappearing or staying red after it's been handled.
-  const badge =
-    policy.status === "within"
+  const badge = deal.quoteSentAt
+    ? { label: "Sent", cls: "bg-success text-success-foreground" }
+    : policy.status === "within"
       ? { label: "Within Range", cls: "bg-success-soft text-success" }
       : deal.approvalState === "approved"
         ? { label: "Approved", cls: "bg-success-soft text-success" }

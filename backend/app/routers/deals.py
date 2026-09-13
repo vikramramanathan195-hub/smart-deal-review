@@ -8,6 +8,7 @@ from app.models import (
     DealDetail,
     DealSummary,
     DealUpdate,
+    SendQuoteRequest,
     LineItemApprovalRequest,
     LineItemCreate,
     LineItemDecisionRequest,
@@ -65,6 +66,7 @@ def list_deals(_user=Depends(get_current_user)) -> list[DealSummary]:
             line_item_count=len(state.line_items),
             decided_line_count=store.line_progress(state)[0],
             in_review_line_count=store.line_progress(state)[1],
+            quote_sent_at=state.deal.quote_sent_at,
             term_length=state.deal.term_length,
             product_categories=state.deal.product_categories,
         )
@@ -247,6 +249,36 @@ def decide_approval(
     state = store.set_approval(deal_id, body.decision, note=(body.note or "").strip() or None)
     _sync_status(state)
     return ApprovalResponse(deal_id=deal_id, status=state.deal.status, approval_state=state.deal.approval_state)
+
+
+@router.post("/{deal_id}/quote/send", response_model=DealDetail)
+def send_quote(deal_id: str, body: SendQuoteRequest, _user=Depends(get_current_user)) -> DealDetail:
+    state = _get_state_or_404(deal_id)
+    if not state.line_items:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Add at least one line item before sending.")
+    decided, in_review = store.line_progress(state)
+    if in_review > 0 or decided < len(state.line_items):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Every line needs a decision before the quote can be sent.",
+        )
+    blended = store.blended_discount_pct(state)
+    if blended > APPROVAL_THRESHOLD_PCT and state.deal.approval_state != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"This deal is over the {APPROVAL_THRESHOLD_PCT}% ceiling and needs manager approval first.",
+        )
+    state = store.send_quote(deal_id, body.recipient.strip())
+    return _to_detail(state)
+
+
+@router.post("/{deal_id}/quote/send/undo", response_model=DealDetail)
+def undo_send_quote(deal_id: str, _user=Depends(get_current_user)) -> DealDetail:
+    try:
+        state = store.undo_send_quote(deal_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return _to_detail(state)
 
 
 @router.post("/{deal_id}/approval/undo", response_model=ApprovalResponse)

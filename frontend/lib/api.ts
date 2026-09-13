@@ -12,6 +12,7 @@ import type {
   LineItemUpdateBody,
   LoginResponse,
   Role,
+  SendQuoteBody,
 } from "@/lib/api-types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -172,6 +173,14 @@ export function decideApproval(
 
 export function undoApproval(token: string, dealId: string): Promise<ApprovalResponse> {
   return request<ApprovalResponse>(`/api/deals/${dealId}/approval/undo`, { method: "POST", token });
+}
+
+export function sendQuote(token: string, dealId: string, body: SendQuoteBody): Promise<DealDetail> {
+  return request<DealDetail>(`/api/deals/${dealId}/quote/send`, { method: "POST", token, body });
+}
+
+export function undoSendQuote(token: string, dealId: string): Promise<DealDetail> {
+  return request<DealDetail>(`/api/deals/${dealId}/quote/send/undo`, { method: "POST", token });
 }
 
 export function undoLineItemDecision(

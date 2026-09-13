@@ -10,11 +10,15 @@ export function QuoteSheet({
   lineItems,
   blended,
   region,
+  mode = "print",
 }: {
   deal: DealDetail;
   lineItems: LineItemDetail[];
   blended: number;
   region: Region;
+  /** "print" renders only for print; "screen" shows the same sheet on screen
+   * as a paper-white preview (kept white in dark mode on purpose). */
+  mode?: "print" | "screen";
 }) {
   const total = lineItems.reduce((s, li) => s + li.lineItem.dealValue, 0);
   const totalNet = lineItems.reduce((s, li) => {
@@ -29,7 +33,13 @@ export function QuoteSheet({
   });
 
   return (
-    <div className="hidden bg-white p-12 font-sans text-black print:block">
+    <div
+      className={
+        mode === "print"
+          ? "hidden bg-white p-12 font-sans text-black print:block"
+          : "rounded-lg border border-black/10 bg-white p-8 font-sans text-black shadow-card"
+      }
+    >
       <div className="flex items-start justify-between border-b border-black/20 pb-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-black/60">Quote</p>
@@ -70,7 +80,7 @@ export function QuoteSheet({
                 <td className="py-3 pr-4 tabular-nums text-black/60">{i + 1}</td>
                 <td className="py-3 pr-4">
                   {li.lineItem.productCategory}
-                  <span className="text-black/50">{status}</span>
+                  <span className="text-black/70">{status}</span>
                 </td>
                 <td className="py-3 pr-4 text-right tabular-nums">
                   {formatMoney(li.lineItem.dealValue, region)}
@@ -103,7 +113,7 @@ export function QuoteSheet({
             : `Blended discount of ${pct(blended)} is subject to manager approval.`}
       </p>
 
-      <p className="mt-12 text-xs text-black/50">
+      <p className="mt-12 text-xs text-black/70">
         Prepared with Deal Discount Review. Figures are in{" "}
         {regionInfo(region).currencyCode} and valid for 30 days from the date above.
       </p>
