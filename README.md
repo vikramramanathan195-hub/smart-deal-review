@@ -25,3 +25,4 @@ Next.js (App Router, React 19 + TypeScript), Tailwind CSS, shadcn/ui, TanStack Q
 ## Status
 
 Frontend and backend both implemented and wired together. Deployment in progress.
+
