@@ -106,7 +106,7 @@ function AiTakeButton({ onGetAiTake }: { onGetAiTake: () => Promise<string> }) {
       <div className="mt-3 rounded-lg border border-ai/25 bg-ai-softer p-3">
         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ai">
           <MessageSquareText className="h-3 w-3" />
-          What to say
+          AI take
         </p>
         <p className="mt-1.5 text-xs leading-relaxed text-foreground">{text}</p>
       </div>
