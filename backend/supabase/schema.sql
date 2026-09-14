@@ -98,7 +98,11 @@ insert into customers (id, name, partner_since, lifetime_value, renewal_rate_pct
   ('cust-northwind', 'Northwind Industries', 2022, '$1.24M', 100.0, 10.7),
   ('cust-cerulean',  'Cerulean Logistics',   2025, '$310K',  67.0,  13.4),
   ('cust-meridian',  'Meridian Health Systems', 2018, '$2.86M', 100.0, 8.2),
-  ('cust-atlas',     'Atlas Manufacturing',  2024, '$890K',  100.0, 11.9);
+  ('cust-atlas',     'Atlas Manufacturing',  2024, '$890K',  100.0, 11.9),
+  ('cust-vantage',   'Vantage Retail Group', 2021, '$1.68M', 88.0,  12.3),
+  ('cust-brightfield','Brightfield Energy',  2023, '$540K',  75.0,  14.1),
+  ('cust-solara',    'Solara Biotech',       2019, '$3.42M', 100.0, 9.4),
+  ('cust-keystone',  'Keystone Freight',     2020, '$720K',  83.0,  13.0);
 
 insert into discount_history (customer_id, date, discount_pct, outcome) values
   ('cust-northwind', 'Mar 2023', 9.0,  'won'),
@@ -114,7 +118,27 @@ insert into discount_history (customer_id, date, discount_pct, outcome) values
   ('cust-meridian',  'Apr 2025', 8.5,  'won'),
   ('cust-atlas',     'May 2024', 10.5, 'won'),
   ('cust-atlas',     'Nov 2024', 12.0, 'won'),
-  ('cust-atlas',     'Aug 2025', 13.5, 'lost');
+  ('cust-atlas',     'Aug 2025', 13.5, 'lost'),
+  ('cust-vantage',    'Feb 2022', 11.0, 'won'),
+  ('cust-vantage',    'Aug 2022', 13.0, 'won'),
+  ('cust-vantage',    'Mar 2023', 15.0, 'lost'),
+  ('cust-vantage',    'Oct 2023', 12.5, 'won'),
+  ('cust-vantage',    'May 2024', 11.5, 'won'),
+  ('cust-brightfield','Jun 2023', 13.5, 'won'),
+  ('cust-brightfield','Jan 2024', 16.0, 'lost'),
+  ('cust-brightfield','Sep 2024', 14.5, 'won'),
+  ('cust-solara',     'Nov 2019', 8.0,  'won'),
+  ('cust-solara',     'Nov 2020', 8.5,  'won'),
+  ('cust-solara',     'Nov 2021', 9.0,  'won'),
+  ('cust-solara',     'Nov 2022', 9.5,  'won'),
+  ('cust-solara',     'Nov 2023', 9.5,  'won'),
+  ('cust-solara',     'Nov 2024', 10.0, 'won'),
+  ('cust-keystone',   'Apr 2021', 10.5, 'won'),
+  ('cust-keystone',   'Dec 2021', 14.0, 'lost'),
+  ('cust-keystone',   'Jul 2022', 12.0, 'won'),
+  ('cust-keystone',   'Feb 2023', 13.5, 'won'),
+  ('cust-keystone',   'Nov 2023', 14.5, 'lost'),
+  ('cust-keystone',   'Jun 2024', 12.5, 'won');
 
 insert into deals (id, name, customer_id, term_length, product_categories, region, status) values
   ('northwind', 'Northwind Industries — FY27 Expansion', 'cust-northwind', '24mo',
@@ -124,7 +148,15 @@ insert into deals (id, name, customer_id, term_length, product_categories, regio
   ('meridian', 'Meridian Health Systems — Annual Renewal', 'cust-meridian', '12mo',
     array['Compute','Services'], 'india', 'within_range'),
   ('atlas', 'Atlas Manufacturing — Global Rollout', 'cust-atlas', '36mo',
-    array['Compute','Networking','Storage'], 'japan', 'within_range');
+    array['Compute','Networking','Storage'], 'japan', 'within_range'),
+  ('vantage', 'Vantage Retail Group — Store Systems Refresh', 'cust-vantage', '24mo',
+    array['Compute','Services'], 'uk', 'within_range'),
+  ('brightfield', 'Brightfield Energy — Grid Monitoring Expansion', 'cust-brightfield', '36mo',
+    array['Networking','Storage','Services'], 'brazil', 'needs_approval'),
+  ('solara', 'Solara Biotech — Annual Renewal', 'cust-solara', '12mo',
+    array['Compute','Storage'], 'north_america', 'within_range'),
+  ('keystone', 'Keystone Freight — Fleet Telemetry Rollout', 'cust-keystone', '24mo',
+    array['Networking','Compute'], 'india', 'needs_approval');
 
 insert into line_items (id, deal_id, product_category, deal_value) values
   ('line-seed-1', 'northwind', 'Compute', 180000.0),
@@ -137,7 +169,16 @@ insert into line_items (id, deal_id, product_category, deal_value) values
   ('line-mer-2',  'meridian',  'Services', 38000.0),
   ('line-atl-1',  'atlas',     'Compute', 310000.0),
   ('line-atl-2',  'atlas',     'Networking', 165000.0),
-  ('line-atl-3',  'atlas',     'Storage', 98000.0);
+  ('line-atl-3',  'atlas',     'Storage', 98000.0),
+  ('line-van-1',  'vantage',   'Compute', 210000.0),
+  ('line-van-2',  'vantage',   'Services', 88000.0),
+  ('line-bri-1',  'brightfield','Networking', 175000.0),
+  ('line-bri-2',  'brightfield','Storage', 92000.0),
+  ('line-bri-3',  'brightfield','Services', 54000.0),
+  ('line-sol-1',  'solara',    'Compute', 260000.0),
+  ('line-sol-2',  'solara',    'Storage', 120000.0),
+  ('line-key-1',  'keystone',  'Networking', 198000.0),
+  ('line-key-2',  'keystone',  'Compute', 84000.0);
 
 insert into recommendations (line_item_id, recommended_pct, confidence, net_value) values
   ('line-seed-1', 12.0, 'high',   158400.0),
@@ -150,14 +191,42 @@ insert into recommendations (line_item_id, recommended_pct, confidence, net_valu
   ('line-mer-2',  9.0,  'high',   34580.0),
   ('line-atl-1',  13.5, 'medium', 268150.0),
   ('line-atl-2',  14.5, 'medium', 141075.0),
-  ('line-atl-3',  12.0, 'high',   86240.0);
+  ('line-atl-3',  12.0, 'high',   86240.0),
+  ('line-van-1',  11.5, 'high',   185850.0),
+  ('line-van-2',  12.0, 'medium', 77440.0),
+  ('line-bri-1',  17.0, 'low',    145250.0),
+  ('line-bri-2',  15.5, 'medium', 77740.0),
+  ('line-bri-3',  14.0, 'medium', 46440.0),
+  ('line-sol-1',  9.5,  'high',   235300.0),
+  ('line-sol-2',  10.0, 'high',   108000.0),
+  ('line-key-1',  15.5, 'medium', 167310.0),
+  ('line-key-2',  16.5, 'low',    70140.0);
 
 insert into recommendation_factors (line_item_id, name, contribution_pct, positive, sort_order) values
   ('line-seed-1', 'Baseline (segment: Enterprise)', 8.0, true, 0),
   ('line-seed-1', 'Customer tenure (4 yrs)', 2.5, true, 1),
   ('line-seed-1', 'Deal size tier', 2.0, true, 2),
   ('line-seed-1', 'Regional competitive pressure', 1.5, true, 3),
-  ('line-seed-1', 'Margin floor guardrail', -2.0, false, 4);
+  ('line-seed-1', 'Margin floor guardrail', -2.0, false, 4),
+  ('line-bri-1', 'Baseline (segment: Mid-market)', 10.0, true, 0),
+  ('line-bri-1', 'Customer tenure (2 yrs)', 1.0, true, 1),
+  ('line-bri-1', 'Deal size tier', 3.0, true, 2),
+  ('line-bri-1', 'Competitive displacement', 4.5, true, 3),
+  ('line-bri-1', 'Margin floor guardrail', -1.5, false, 4),
+  ('line-key-1', 'Baseline (segment: Mid-market)', 10.0, true, 0),
+  ('line-key-1', 'Customer tenure (5 yrs)', 1.5, true, 1),
+  ('line-key-1', 'Deal size tier', 2.5, true, 2),
+  ('line-key-1', 'Multi-region rollout complexity', 3.0, true, 3),
+  ('line-key-1', 'Margin floor guardrail', -1.5, false, 4);
+
+insert into discount_change_log (line_item_id, by, previous_pct, new_pct, reason, action) values
+  ('line-seed-1', 'rep@dealreview.dev', null, 12.0, null, 'accepted'),
+  ('line-mer-1',  'rep@dealreview.dev', null, 8.0,  null, 'accepted'),
+  ('line-sol-1',  'rep@dealreview.dev', null, 9.5,  null, 'accepted'),
+  ('line-sol-2',  'rep@dealreview.dev', null, 10.0, null, 'accepted'),
+  ('line-bri-1',  'rep@dealreview.dev', 17.0, 19.0, 'Champion asked for parity with last year''s renewal rate', 'proposed_pending_approval'),
+  ('line-bri-1',  'manager@dealreview.dev', 19.0, 19.0, 'Approved given 3-year term and account growth trajectory', 'approved'),
+  ('line-key-1',  'rep@dealreview.dev', 15.5, 17.5, 'Multi-region rollout adds onboarding risk, requesting buffer', 'proposed_pending_approval');
 
 comment on table deals is 'One row per deal. status/approval_state mirror the same two-band policy check (15% blended ceiling) the API enforces in backend/app/routers/deals.py.';
 comment on table recommendations is 'The AI-generated recommendation per line item; recommendation_factors holds the factor-by-factor breakdown shown in the "Why this number" panel.';
