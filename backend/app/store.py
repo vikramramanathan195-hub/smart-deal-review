@@ -95,6 +95,39 @@ class DataStore:
         self._seed()
 
     def _seed(self) -> None:
+        try:
+            self._seed_from_supabase()
+        except Exception as exc:  # noqa: BLE001 - a data-source hiccup must not take the app down
+            print(f"[store] Supabase seed unavailable ({exc}); falling back to seed_data.py")
+            self._seed_from_literals()
+
+    def _seed_from_supabase(self) -> None:
+        from app.supabase_data import load_deal_states
+
+        for deal, customer, history, line_items, rec_specs in load_deal_states():
+            state = DealState(
+                deal=deal.model_copy(deep=True),
+                customer=customer.model_copy(deep=True),
+                discount_history=[h.model_copy() for h in history],
+            )
+            for li in line_items:
+                state.line_items[li.id] = li.model_copy(deep=True)
+                rec = rec_specs.get(li.id)
+                if not rec:
+                    continue
+                state.recommendations[li.id] = DiscountRecommendation(
+                    line_item_id=li.id,
+                    recommended_pct=rec["recommended_pct"],
+                    confidence=rec["confidence"],
+                    net_value=_net_value(li.deal_value, rec["recommended_pct"]),
+                    factors=[f.model_copy() for f in rec["factors"]],
+                )
+            self.deals[deal.id] = state
+        if not self.deals:
+            raise RuntimeError("Supabase returned zero deals")
+        print(f"[store] Seeded {len(self.deals)} deals from Supabase")
+
+    def _seed_from_literals(self) -> None:
         for deal, customer, history, line_item_specs in (
             (NORTHWIND_DEAL, NORTHWIND_CUSTOMER, NORTHWIND_HISTORY, NORTHWIND_LINE_ITEMS),
             (CERULEAN_DEAL, CERULEAN_CUSTOMER, CERULEAN_HISTORY, CERULEAN_LINE_ITEMS),

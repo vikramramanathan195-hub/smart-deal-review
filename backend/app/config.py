@@ -18,5 +18,12 @@ class Settings(BaseSettings):
     # endpoint degrades to a clear error (not a crash) if it's unset.
     anthropic_api_key: str | None = None
 
+    # Optional: if both are set, the store seeds itself from these Supabase
+    # tables (see supabase/schema.sql) instead of the hardcoded Python
+    # literals in seed_data.py. Falls back to seed_data.py — not a crash —
+    # if unset or unreachable, so a Supabase hiccup never breaks the app.
+    supabase_url: str | None = None
+    supabase_service_key: str | None = None
+
 
 settings = Settings()
