@@ -73,6 +73,7 @@ import {
   useDecisionMutation,
   useLineItemApprovalMutation,
   useUndoLineItemDecisionMutation,
+  useAiTakeMutation,
   useSendQuoteMutation,
   useUndoSendQuoteMutation,
   useRemoveLineItemMutation,
@@ -163,6 +164,7 @@ function DealsContent() {
   const decisionMutation = useDecisionMutation(currentDealId);
   const lineItemApprovalMutation = useLineItemApprovalMutation(currentDealId);
   const undoLineItemMutation = useUndoLineItemDecisionMutation(currentDealId);
+  const aiTakeMutation = useAiTakeMutation(currentDealId);
   const approvalMutation = useApprovalMutation(currentDealId);
   const undoApprovalMutation = useUndoApprovalMutation(currentDealId);
   const updateDealMutation = useUpdateDealMutation(currentDealId);
@@ -928,6 +930,10 @@ function DealsContent() {
                         handleResolveLineApproval(detail.lineItem.id, decision)
                       }
                       onUndoDecision={() => handleUndoLineItemDecision(detail.lineItem.id)}
+                      onGetAiTake={async () => {
+                        const { text } = await aiTakeMutation.mutateAsync(detail.lineItem.id);
+                        return text;
+                      }}
                       onDuplicate={() => handleDuplicate(detail)}
                       previewBlended={(p) => blendedIfLineAt(detail.lineItem.id, p)}
                     />

@@ -183,6 +183,13 @@ export function undoSendQuote(token: string, dealId: string): Promise<DealDetail
   return request<DealDetail>(`/api/deals/${dealId}/quote/send/undo`, { method: "POST", token });
 }
 
+export function getAiTake(token: string, dealId: string, lineItemId: string): Promise<{ text: string }> {
+  return request<{ text: string }>(
+    `/api/deals/${dealId}/line-items/${lineItemId}/ai-take`,
+    { method: "POST", token },
+  );
+}
+
 export function undoLineItemDecision(
   token: string,
   dealId: string,

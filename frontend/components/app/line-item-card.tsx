@@ -56,6 +56,7 @@ export function LineItemCard({
   onUndoDecision,
   onDuplicate,
   previewBlended,
+  onGetAiTake,
 }: {
   detail: LineItemDetail;
   index: number;
@@ -75,6 +76,7 @@ export function LineItemCard({
   onUndoDecision: () => Promise<void>;
   onDuplicate: () => void;
   previewBlended: (pct: number) => number;
+  onGetAiTake?: () => Promise<string>;
 }) {
   const { lineItem, recommendation } = detail;
   // While a proposal on this line awaits a manager's call, category/value are
@@ -332,6 +334,7 @@ export function LineItemCard({
               onResolveApproval={onResolveApproval}
               onUndoDecision={onUndoDecision}
               previewBlended={previewBlended}
+              onGetAiTake={onGetAiTake}
             />
           </div>
         )}

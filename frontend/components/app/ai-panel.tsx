@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, AlertTriangle, Loader2, Check, Clock, ChevronDown } from "lucide-react";
+import { Sparkles, AlertTriangle, Loader2, Check, Clock, ChevronDown, MessageSquareText } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +80,58 @@ function PendingBadge() {
       <Clock className="h-3 w-3" />
       Pending manager approval
     </span>
+  );
+}
+
+/** A real Claude call (via LangChain), on demand — not run automatically,
+ * since it costs real tokens and the deterministic factors above are
+ * already the thing a rep decides against. This is a narrated add-on. */
+function AiTakeButton({ onGetAiTake }: { onGetAiTake: () => Promise<string> }) {
+  const [state, setState] = useState<"idle" | "loading" | "error">("idle");
+  const [text, setText] = useState<string | null>(null);
+
+  const run = async () => {
+    setState("loading");
+    try {
+      const result = await onGetAiTake();
+      setText(result);
+      setState("idle");
+    } catch {
+      setState("error");
+    }
+  };
+
+  if (text) {
+    return (
+      <div className="mt-3 rounded-lg border border-ai/25 bg-ai-softer p-3">
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ai">
+          <MessageSquareText className="h-3 w-3" />
+          Claude's take
+        </p>
+        <p className="mt-1.5 text-xs leading-relaxed text-foreground">{text}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => void run()}
+        disabled={state === "loading"}
+        className="pressable inline-flex items-center gap-1.5 rounded-md border border-dashed border-ai/40 px-2.5 py-1.5 text-xs font-medium text-ai hover:bg-ai-softer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {state === "loading" ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <MessageSquareText className="h-3.5 w-3.5" />
+        )}
+        {state === "loading" ? "Asking Claude…" : "Get AI take"}
+      </button>
+      {state === "error" && (
+        <p className="mt-1.5 text-xs text-danger">Couldn&apos;t reach the model. Try again.</p>
+      )}
+    </div>
   );
 }
 
@@ -289,6 +341,7 @@ export function AiPanel({
   onResolveApproval,
   onUndoDecision,
   previewBlended,
+  onGetAiTake,
 }: {
   lineItem: LineItem;
   recommendation: DiscountRecommendation;
@@ -306,6 +359,10 @@ export function AiPanel({
   /** Deal-level blended discount if this line were set to the given %, so a
    * proposal can show its effect on the whole deal before it's submitted. */
   previewBlended?: (pct: number) => number;
+  /** Real Claude call (via LangChain, backend/app/ai_take.py) that narrates
+   * this recommendation in plain speech. Optional so the panel still works
+   * standalone if a caller doesn't wire it up. */
+  onGetAiTake?: () => Promise<string>;
 }) {
   const isPending = lineItem.lineApprovalState === "pending_approval";
   const applied = lineItem.appliedDiscountPct ?? recommendation.recommendedPct;
@@ -430,6 +487,7 @@ export function AiPanel({
               {CONFIDENCE_NOTE[recommendation.confidence]}
             </p>
           )}
+          {onGetAiTake && <AiTakeButton onGetAiTake={onGetAiTake} />}
           {appliedFeedback && (
             <div className="mt-2 space-y-1">
               <p className="text-xs text-muted-foreground">

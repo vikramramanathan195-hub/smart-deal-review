@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.ai_take import AiTakeUnavailable, generate_ai_take
 from app.auth import get_current_user, require_role
 from app.models import (
     ApprovalRequest,
@@ -156,6 +157,24 @@ def update_line_item(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     state = store.get_deal_state(deal_id)
     return LineItemDetail(line_item=item, recommendation=state.recommendations[item.id])
+
+
+@router.post("/{deal_id}/line-items/{line_item_id}/ai-take", response_model=dict[str, str])
+def get_ai_take(deal_id: str, line_item_id: str, _user=Depends(get_current_user)) -> dict[str, str]:
+    """A real Claude call (via LangChain) that turns the already-computed
+    recommendation into a short spoken-style narrative. Deliberately separate
+    from generate_recommendation() in store.py, which stays the deterministic
+    core — this only synthesizes on top of it."""
+    state = _get_state_or_404(deal_id)
+    item = state.line_items.get(line_item_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Line item '{line_item_id}' not found")
+    recommendation = state.recommendations[line_item_id]
+    try:
+        text = generate_ai_take(item, recommendation, state.customer, state.discount_history)
+    except AiTakeUnavailable as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return {"text": text}
 
 
 @router.post("/{deal_id}/line-items/{line_item_id}/decision", response_model=LineItemDetail)

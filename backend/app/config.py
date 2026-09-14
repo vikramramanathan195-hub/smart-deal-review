@@ -12,5 +12,11 @@ class Settings(BaseSettings):
     # the Next.js rewrite.
     frontend_origin: str = "http://localhost:3000"
 
+    # Optional: powers the "Get AI take" narrative on a recommendation via
+    # LangChain. The deterministic factor scoring in store.py never depends
+    # on this — it's a synthesis layer on top, not a replacement, and the
+    # endpoint degrades to a clear error (not a crash) if it's unset.
+    anthropic_api_key: str | None = None
+
 
 settings = Settings()

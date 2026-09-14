@@ -175,6 +175,13 @@ export function useUndoSendQuoteMutation(dealId: string) {
   });
 }
 
+export function useAiTakeMutation(dealId: string) {
+  const { token } = useSession();
+  return useMutation({
+    mutationFn: (lineItemId: string) => api.getAiTake(token!, dealId, lineItemId),
+  });
+}
+
 export function useUndoLineItemDecisionMutation(dealId: string) {
   const { token } = useSession();
   const queryClient = useQueryClient();
