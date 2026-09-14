@@ -90,6 +90,7 @@ def create_deal(body: DealCreate, _user=Depends(get_current_user)) -> DealDetail
 @router.get("/{deal_id}", response_model=DealDetail)
 def get_deal(deal_id: str, _user=Depends(get_current_user)) -> DealDetail:
     state = _get_state_or_404(deal_id)
+    store.ensure_ai_recommendations(state)
     return _to_detail(state)
 
 
