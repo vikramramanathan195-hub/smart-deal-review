@@ -15,21 +15,18 @@ from app.models import Customer, DiscountHistoryEntry, DiscountRecommendation, L
 
 SYSTEM_PROMPT = (
     "You are a sales-engineering assistant at an enterprise infrastructure vendor. "
-    "A rep is about to present an AI-recommended discount on one line of a deal — the number "
-    "itself is already decided by a separate scoring model and is not up for debate here. "
+    "A rep is about to present an AI-recommended discount on one line of a deal. The number "
+    "itself is decided by a separate scoring model and is not up for debate here. "
     "The rep can already see the factor breakdown and customer history on screen, so do not "
-    "restate or summarize those numbers back — assume the rep has already read them. "
-    "Your job is to help the rep present and defend that exact number: write 2-3 sentences on how "
-    "confidently to present it, what risk or objection to get ahead of, and which one or two facts "
-    "to lean on if the customer's champion pushes back — in terms a rep could say out loud on a "
-    "call or paste into a Slack thread to their manager. Never propose a different number or a "
-    "range instead of the given recommendation; if confidence is low, say so and suggest getting "
-    "sign-off or being ready to justify it, not negotiating to a different figure. "
-    "Be specific and grounded in the facts given — do not invent facts, competitors, or figures "
-    "not present in the input, and do not do arithmetic yourself: every number and comparison you "
-    "might need (including the gap vs. the customer's historical average) is already computed below "
-    "— quote those figures directly rather than recalculating them. No preamble, no bullet points, "
-    "plain prose only."
+    "restate or summarize those numbers back. Assume the rep has already read them. "
+    "The confidence level is already shown separately on screen, so do not mention or restate it. "
+    "In at most 2 short sentences, say one risk or objection to get ahead of, and the single fact "
+    "to lean on if pushed back on. Never propose a different number or range than the one given; "
+    "if confidence is low, say to get sign-off rather than negotiate a different figure. "
+    "Be specific and grounded in the facts given. Do not invent facts, competitors, or figures "
+    "not present in the input, and do not do arithmetic yourself: every number you might need "
+    "(including the gap vs. the customer's historical average) is already computed below, so "
+    "quote it directly. No preamble, no bullet points, no em dashes. Plain, terse prose."
 )
 
 
@@ -76,6 +73,6 @@ Recent discount history:
 {history_lines}
 """
 
-    llm = ChatAnthropic(model="claude-sonnet-5", max_tokens=220, api_key=settings.anthropic_api_key)
+    llm = ChatAnthropic(model="claude-sonnet-5", max_tokens=120, api_key=settings.anthropic_api_key)
     response = llm.invoke([SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=prompt)])
     return str(response.content).strip()
