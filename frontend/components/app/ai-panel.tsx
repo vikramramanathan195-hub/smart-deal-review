@@ -752,7 +752,7 @@ export function AiPanel({
 
         {/* Column 2 */}
         <PanelCard>
-          <h4 className="text-sm font-semibold">Why this number</h4>
+          <h4 className="text-sm font-semibold">Explainable AI</h4>
           <p className="mt-1 text-xs text-muted-foreground">
             Each factor below adjusts the baseline discount.
           </p>
